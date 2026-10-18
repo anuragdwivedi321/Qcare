@@ -6,6 +6,7 @@
 
 class HospitalAudioEngine {
   private ctx: AudioContext | null = null;
+  private currentAnnouncementId: number = 0;
 
   private initContext() {
     if (typeof window === 'undefined') return null;
@@ -19,6 +20,20 @@ class HospitalAudioEngine {
       this.ctx.resume();
     }
     return this.ctx;
+  }
+
+  /**
+   * Instantly stops any ongoing voice synthesis, audio queues, and pending repetitions
+   */
+  public stopAll() {
+    this.currentAnnouncementId++;
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore cancellation error
+      }
+    }
   }
 
   /**
@@ -62,26 +77,73 @@ class HospitalAudioEngine {
   }
 
   /**
-   * Announces a token call with spoken audio
+   * Announces a token call with spoken audio:
+   * 1. Instantly cancels any prior voice so rapid clicks speak ONLY the active token.
+   * 2. Speaks: "Token [token], [patientName], please proceed to [counterName], [room]."
+   * 3. Repeats EXACTLY twice (2 times) and then terminates.
    */
-  public announceToken(tokenNumber: string, counterName: string, room: string) {
+  public announceToken(tokenNumber: string, counterName: string, room: string, patientName?: string) {
+    // 1. Immediately abort any ongoing speech from earlier calls
+    this.stopAll();
+
+    // 2. Play chime
     this.playChime();
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      setTimeout(() => {
-        try {
-          const utterance = new SpeechSynthesisUtterance(
-            `Token ${tokenNumber.split('').join(' ')}, please proceed to ${counterName}, ${room}`
-          );
-          utterance.rate = 0.95;
-          utterance.pitch = 1.05;
-          utterance.lang = 'en-US';
-          window.speechSynthesis.speak(utterance);
-        } catch {
-          // ignore speech error
-        }
-      }, 700);
-    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const myId = ++this.currentAnnouncementId;
+
+    // Readable spelled-out token (e.g. "R A D 1 0 2")
+    const formattedToken = tokenNumber.split('').join(' ');
+    const cleanPatient = patientName && patientName !== 'Walk-in' && patientName.trim().length > 0
+      ? patientName.trim()
+      : '';
+    const cleanRoom = room.replace(/\(.*\)/g, '').trim();
+
+    // Natural hospital calling announcement
+    const textToSpeak = cleanPatient
+      ? `Token ${formattedToken}, ${cleanPatient}, please enter ${counterName}, ${cleanRoom}.`
+      : `Token ${formattedToken}, please proceed to ${counterName}, ${cleanRoom}.`;
+
+    const speakOnce = (repetition: number) => {
+      // If a newer announcement has started, cancel this execution
+      if (myId !== this.currentAnnouncementId) return;
+
+      try {
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.rate = 0.92;
+        utterance.pitch = 1.05;
+        utterance.lang = 'en-US';
+
+        utterance.onend = () => {
+          if (myId !== this.currentAnnouncementId) return;
+
+          // Repeat once more (total 2 times), then stop!
+          if (repetition === 1) {
+            setTimeout(() => {
+              if (myId === this.currentAnnouncementId) {
+                speakOnce(2);
+              }
+            }, 650);
+          }
+        };
+
+        utterance.onerror = () => {
+          // graceful fallback
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // speech API error fallback
+      }
+    };
+
+    // Give chime 550ms before speech starts
+    setTimeout(() => {
+      if (myId === this.currentAnnouncementId) {
+        speakOnce(1);
+      }
+    }, 550);
   }
 }
 

@@ -5,7 +5,8 @@ import {
   QueueToken, 
   Patient, 
   QueueRoutingPlan, 
-  RouteStep 
+  RouteStep,
+  DoctorPriority 
 } from '../types';
 
 /**
@@ -34,14 +35,26 @@ export function calculateTransitMinutes(
 }
 
 /**
+ * Formats estimated waiting time as a realistic range.
+ * Example: 25 -> "Approx. 20–30 min"
+ */
+export function formatWaitRange(minutes: number): string {
+  if (minutes <= 2) return 'Immediate (< 3 min)';
+  const min = Math.max(1, Math.round(minutes * 0.85));
+  const max = Math.round(minutes * 1.15) + 2;
+  return `Approx. ${min}–${max} min`;
+}
+
+/**
  * Calculates dynamic estimated wait time at a department given the current queue tokens.
- * Accounts for active counters and average service speed.
+ * Accounts for active counters, active machines, and average service speed.
  */
 export function calculateDepartmentCurrentWait(
   deptId: string,
   tokens: QueueToken[],
   counters: Counter[],
-  patientId?: string
+  patientId?: string,
+  departments?: Department[]
 ): { 
   waitMinutes: number; 
   waitingCount: number; 
@@ -49,16 +62,23 @@ export function calculateDepartmentCurrentWait(
   avgService: number;
   isClosed: boolean;
 } {
-  const activeCounters = counters.filter(
-    c => c.departmentId === deptId && c.status === 'active'
-  );
-  const isClosed = activeCounters.length === 0;
-  const activeCountersCount = activeCounters.length;
+  const dept = departments?.find(d => d.id === deptId);
+  const isDeptMarkedUnavailable = dept?.availabilityStatus === 'unavailable';
 
-  // Compute average service minutes across active counters
-  const avgService = activeCountersCount > 0
-    ? activeCounters.reduce((acc, c) => acc + c.averageServiceMinutes, 0) / activeCountersCount
-    : 7.0;
+  const deptCounters = counters.filter(c => c.departmentId === deptId);
+  const activeCounters = deptCounters.filter(c => c.status === 'active');
+  
+  // Only consider closed if department explicitly marked unavailable, OR counters exist and all are closed, OR activeMachines === 0
+  const isClosed = isDeptMarkedUnavailable || 
+    (deptCounters.length > 0 && activeCounters.length === 0) || 
+    (dept?.activeMachines !== undefined && dept.activeMachines === 0);
+
+  const activeCountersCount = isClosed ? 0 : Math.max(1, activeCounters.length);
+
+  // Compute average service minutes across active counters or realistic standard duration
+  const avgService = activeCounters.length > 0
+    ? activeCounters.reduce((acc, c) => acc + c.averageServiceMinutes, 0) / activeCounters.length
+    : 6.0;
 
   // Count active waiting tokens (excluding patient's own token so they aren't counted ahead of themselves)
   const waitingTokens = tokens.filter(
@@ -68,10 +88,12 @@ export function calculateDepartmentCurrentWait(
   );
   const waitingCount = waitingTokens.length;
 
-  // Effective wait time calculation: if all counters are closed, penalize wait time heavily
+  // Effective wait time calculation:
   const waitMinutes = isClosed
-    ? (waitingCount > 0 ? waitingCount * 20 + 90 : 99)
-    : Math.round((waitingCount * avgService) / Math.max(1, activeCountersCount));
+    ? (waitingCount > 0 ? waitingCount * 20 + 90 : 90)
+    : (waitingCount === 0 
+        ? 0 
+        : Math.max(3, Math.round((waitingCount * avgService) / activeCountersCount)));
 
   return {
     waitMinutes,
@@ -90,15 +112,17 @@ function estimateProjectedWait(
   elapsedMinutes: number,
   tokens: QueueToken[],
   counters: Counter[],
-  patientId?: string
+  patientId?: string,
+  departments?: Department[],
+  projectedLoadCount: number = 0
 ): number {
-  const current = calculateDepartmentCurrentWait(deptId, tokens, counters, patientId);
+  const current = calculateDepartmentCurrentWait(deptId, tokens, counters, patientId, departments);
   if (current.isClosed) {
     return current.waitMinutes;
   }
   // During elapsedMinutes, active counters would have served approx:
   const patientsServedDuringTransit = Math.floor((elapsedMinutes / current.avgService) * current.activeCountersCount);
-  const projectedWaiting = Math.max(0, current.waitingCount - patientsServedDuringTransit);
+  const projectedWaiting = Math.max(0, current.waitingCount - patientsServedDuringTransit) + projectedLoadCount;
   return Math.round((projectedWaiting * current.avgService) / Math.max(1, current.activeCountersCount));
 }
 
@@ -190,7 +214,7 @@ function generateValidSequences(
 }
 
 /**
- * Simulates a specific test sequence and computes cumulative timeline and total duration.
+ * Simulates a specific test sequence and computes cumulative timeline, scoring, and total duration.
  */
 function evaluateSequence(
   sequence: DiagnosticTest[],
@@ -198,10 +222,13 @@ function evaluateSequence(
   tokens: QueueToken[],
   counters: Counter[],
   startTimeDate: Date = new Date(),
-  patientId?: string
-): { totalTime: number; steps: RouteStep[]; bottlenecks: string[]; transitTotal: number } {
+  patientId?: string,
+  projectedLoadMap: Record<string, number> = {},
+  doctorPriority: DoctorPriority = 'normal'
+): { totalTime: number; steps: RouteStep[]; bottlenecks: string[]; transitTotal: number; penaltyScore: number } {
   let currentTimeOffset = 0;
   let totalTransit = 0;
+  let penaltyScore = 0;
   const steps: RouteStep[] = [];
   const bottlenecks: string[] = [];
 
@@ -214,13 +241,17 @@ function evaluateSequence(
     currentTimeOffset += transitTime;
     totalTransit += transitTime;
 
+    const projectedLoad = projectedLoadMap[test.departmentId] || 0;
+
     // Projected wait at arrival
     const projectedWait = estimateProjectedWait(
       test.departmentId, 
       currentTimeOffset, 
       tokens, 
       counters,
-      patientId
+      patientId,
+      departments,
+      projectedLoad
     );
 
     if (projectedWait > 25 && dept) {
@@ -242,14 +273,24 @@ function evaluateSequence(
 
     let reason = '';
     if (idx === 0 && projectedWait <= 5) {
-      reason = 'Lowest wait & zero bottleneck to start immediately.';
+      reason = 'Lowest queue wait & zero bottleneck to start immediately.';
+    } else if (test.requiresFullBladder) {
+      reason = 'Full bladder preparation: prioritized first before bladder voiding.';
     } else if (test.requiresFasting) {
-      reason = 'Fasting prerequisite: prioritized to minimize hunger window.';
+      reason = 'Fasting prerequisite: prioritized early to minimize hunger window.';
     } else if (projectedWait < 10) {
-      reason = 'Counter is operating near real-time capacity.';
+      reason = 'Lab counter operating near real-time capacity.';
     } else {
-      reason = 'Optimal slot while preceding departments process queue backlog.';
+      reason = 'Optimal slot while preceding departments clear pending queue.';
     }
+
+    // Urgent priority boosts attention
+    if (doctorPriority === 'urgent' && idx === 0) {
+      reason = 'Urgent Doctor Priority: Fast-tracked immediately ahead of routine queues.';
+    }
+
+    const activeDeptCounters = counters.filter(c => c.departmentId === test.departmentId && c.status === 'active');
+    const recommendedCounter = activeDeptCounters[0] || counters.find(c => c.departmentId === test.departmentId);
 
     steps.push({
       stepNumber: idx + 1,
@@ -265,40 +306,91 @@ function evaluateSequence(
         coordX: 50,
         coordY: 50
       },
+      recommendedCounterId: recommendedCounter?.id,
       estimatedWaitMinutes: projectedWait,
       estimatedDurationMinutes: testDuration,
       walkingTimeFromPrevMinutes: transitTime,
       expectedStartTime: formatTime(stepStart),
       expectedEndTime: formatTime(stepEnd),
       status: idx === 0 ? 'up_next' : 'queued',
-      reasonForSequence: reason
+      reasonForSequence: reason,
+      priority: doctorPriority,
+      preparationNotes: test.preparationNotes,
+      waitRangeText: formatWaitRange(projectedWait)
     });
 
     currentTimeOffset = endOffset;
     previousDept = dept;
+
+    // Heuristic weight penalty adjustments
+    if (test.requiresFullBladder && idx > 0) {
+      if (doctorPriority === 'priority' || doctorPriority === 'urgent') {
+        penaltyScore += 25 * idx; // Full bladder preparation prioritized for priority consultations
+      } else {
+        penaltyScore += 2 * idx; // Gentle tie-breaker for standard triage allowing low-wait labs (ECG/X-Ray) to lead
+      }
+    }
+    if (test.requiresFasting && idx > 1) {
+      penaltyScore += 1 * idx; // Gentle tie-breaker preference for fasting
+    }
+    const isDeptUnavailable = dept?.availabilityStatus === 'unavailable' || (dept?.activeMachines !== undefined && dept.activeMachines === 0);
+    if (isDeptUnavailable) {
+      // Heavily penalize unavailable lab so it is never scheduled first when available alternatives exist!
+      penaltyScore += 10000 * (sequence.length - idx);
+    }
+    // Doctor Priority
+    if (doctorPriority === 'urgent') {
+      if (idx === 0) {
+        penaltyScore -= 15; // Clinical priority weight boost
+      }
+    } else if (doctorPriority === 'priority') {
+      if (idx === 0) {
+        penaltyScore -= 5;
+      }
+    }
   }
 
   return {
     totalTime: currentTimeOffset,
     steps,
     bottlenecks,
-    transitTotal: totalTransit
+    transitTotal: totalTransit,
+    penaltyScore
   };
 }
 
 /**
  * CORE QUEUE ROUTING OPTIMIZER:
- * Solves the Dynamic Multi-Queue Shortest Total Wait Time Problem.
- * Compares Naive prescription order against the AI Bottleneck-Aware Smart Order.
+ * Solves the Dynamic Multi-Queue Shortest Total Wait Time Problem with weighted scoring:
+ * 1. Doctor Priority
+ * 2. Current Queue Length
+ * 3. Estimated Waiting Time
+ * 4. Lab Availability
+ * 5. Active Machines
+ * 6. Average Test Duration
+ * 7. Test Preparation Requirements (Fasting, Full Bladder)
+ * 8. Test Dependencies
+ * 9. Floor/Room Travel Distance
+ * 10. Projected Queue Load
  */
 export function calculateOptimalQueueRoute(
   patient: Patient,
   allTests: DiagnosticTest[],
   departments: Department[],
   tokens: QueueToken[],
-  counters: Counter[]
+  counters: Counter[],
+  projectedLoadMap: Record<string, number> = {}
 ): QueueRoutingPlan {
   const completedTestIds = patient.completedTests || [];
+
+  // Strictly scope tokens and counters by hospital tenant if patient.hospitalId is defined
+  const tenantHospitalId = patient.hospitalId;
+  const effectiveTokens = tenantHospitalId
+    ? tokens.filter(t => (t.hospitalId || 'hosp-metro') === tenantHospitalId)
+    : tokens;
+  const effectiveCounters = tenantHospitalId
+    ? counters.filter(c => (c.hospitalId || 'hosp-metro') === tenantHospitalId)
+    : counters;
 
   // Filter pending tests (exclude already completed tests)
   const pendingTestIds = patient.prescribedTests.filter(
@@ -316,6 +408,7 @@ export function calculateOptimalQueueRoute(
     .map((testId, idx) => {
       const test = allTests.find(t => t.id === testId);
       const dept = test ? departments.find(d => d.id === test.departmentId) : undefined;
+      const matchedToken = effectiveTokens.find(t => t.patientId === patient.id && t.testId === testId);
       return {
         stepNumber: idx + 1,
         testId,
@@ -330,13 +423,17 @@ export function calculateOptimalQueueRoute(
           coordX: 50,
           coordY: 50
         },
+        recommendedCounterId: matchedToken?.counterId,
         estimatedWaitMinutes: 0,
         estimatedDurationMinutes: test?.averageDurationMinutes || 5,
         walkingTimeFromPrevMinutes: 0,
         expectedStartTime: 'Completed',
         expectedEndTime: 'Completed',
         status: 'completed' as const,
-        reasonForSequence: 'Investigation completed & sample processed.'
+        reasonForSequence: 'Investigation completed & sample processed.',
+        priority: patient.doctorPriority || 'normal',
+        preparationNotes: test?.preparationNotes,
+        waitRangeText: 'Completed'
       };
     });
 
@@ -352,29 +449,47 @@ export function calculateOptimalQueueRoute(
       percentageSaved: 0,
       bottlenecksAvoided: completedSteps.length > 0 ? ['All prescribed investigations completed'] : [],
       fastingSatisfied: true,
-      transitTotalMinutes: 0
+      transitTotalMinutes: 0,
+      recommendedNextTestId: undefined,
+      recommendationReason: 'All diagnostic investigations completed. Return to doctor consultation area.'
     };
   }
+
+  const patientDoctorPriority: DoctorPriority = patient.doctorPriority || 'normal';
 
   // 1. Evaluate Naive Sequence (Original Prescribed Order for pending tests)
   const naiveSequence = [...pendingTests]; // preserves order written on doctor's slip
   const naiveEvaluation = evaluateSequence(
     naiveSequence, 
     departments, 
-    tokens, 
-    counters, 
-    now,
-    patient.id
+    effectiveTokens, 
+    effectiveCounters, 
+    now, 
+    patient.id,
+    projectedLoadMap,
+    patientDoctorPriority
   );
 
   // 2. Generate and evaluate all valid smart permutations
   const validPermutations = generateValidSequences(pendingTests, completedTestIds);
 
+  const getEvaluationScore = (ev: { totalTime: number; penaltyScore: number }) =>
+    ev.totalTime + ev.penaltyScore;
+
   let bestEvaluation = naiveEvaluation;
 
   for (const perm of validPermutations) {
-    const evaluation = evaluateSequence(perm, departments, tokens, counters, now, patient.id);
-    if (evaluation.totalTime < bestEvaluation.totalTime) {
+    const evaluation = evaluateSequence(
+      perm, 
+      departments, 
+      effectiveTokens, 
+      effectiveCounters, 
+      now, 
+      patient.id,
+      projectedLoadMap,
+      patientDoctorPriority
+    );
+    if (getEvaluationScore(evaluation) < getEvaluationScore(bestEvaluation)) {
       bestEvaluation = evaluation;
     }
   }
@@ -401,6 +516,8 @@ export function calculateOptimalQueueRoute(
     avoided.push(...naiveEvaluation.bottlenecks.map(b => `${b} (peak rush deferred)`));
   }
 
+  const upNextStep = renumberedSteps[0];
+
   return {
     patientId: patient.id,
     calculatedAt: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -411,6 +528,8 @@ export function calculateOptimalQueueRoute(
     percentageSaved: percentage,
     bottlenecksAvoided: avoided.length > 0 ? avoided : ['Hematology Peak Rush (BLD-101)'],
     fastingSatisfied: true,
-    transitTotalMinutes: bestEvaluation.transitTotal
+    transitTotalMinutes: bestEvaluation.transitTotal,
+    recommendedNextTestId: upNextStep?.testId,
+    recommendationReason: upNextStep?.reasonForSequence || 'Optimal diagnostic path calculated by smart routing engine.'
   };
 }

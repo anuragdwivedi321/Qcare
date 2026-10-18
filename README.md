@@ -1,62 +1,58 @@
-# Q-Care Sync 🏥⚡
-> **Hospital Multi-Queue Routing & Diagnostic Synchronization Platform**
+# CityCare Hospital — Diagnostic Queue & Clinical Portal 🏥
 
-Q-Care is an intelligent clinical workflow and multi-queue dynamic dispatch platform designed to eliminate diagnostic bottlenecks in multi-department hospitals.
+An authentic, minimalist clinical operations platform for multi-department outpatient flow and dynamic diagnostic queue routing (inspired by modern EMR systems).
 
-When patients are prescribed multiple clinical investigations (e.g., Blood Test / CBC, Fasting Glucose, 12-Lead ECG, Chest X-Ray, Whole Abdomen Ultrasound, Retinal Fundus Scan), they typically wait blindly in long sequential queues. For example, a patient might queue for 45 minutes at a crowded blood collection counter with 14 patients ahead, while the ECG and X-Ray stations on the same floor sit completely vacant.
+When patients are prescribed multiple investigations (e.g. Complete Blood Count, Fasting Blood Sugar, 12-Lead ECG, Digital Chest X-Ray, Abdominal Ultrasound), traditional hospitals force them to wait in sequential order. A patient may wait 45 minutes in a crowded phlebotomy queue while ECG and X-Ray bays sit idle.
 
-**Q-Care solves this bottleneck by dynamically computing the mathematically optimal investigation sequence** based on real-time counter queue lengths, service speeds, prerequisite constraints (e.g. fasting compliance), and physical inter-department transit matrices.
-
----
-
-## 🌟 Key Highlights & Architectural Capabilities
-
-### 1. Dynamic Shortest Estimated Wait Algorithm (DSWTF)
-- Evaluates valid permutations of prescribed tests.
-- Models queue drain rates at arrival times $T_{arrive} = T + \text{Transit}(\text{dept}_A, \text{dept}_B)$.
-- Preserves clinical fasting and prerequisite constraints.
-- Delivers an average **60% - 75% reduction in total hospital waiting time** (e.g. from 118 minutes down to 34 minutes for a 4-test prescription).
-
-### 2. Side-by-Side Savings Analysis Card
-- Live comparative metric comparing **Naive Doctor Slip Order** vs **Q-Care Smart Bottleneck-Bypass Route**.
-- Highlights minutes saved, percentage faster, and explicit avoided bottleneck tags.
-
-### 3. Synchronized Diagnostic Triad (Doctor ↔ Patient ↔ Lab)
-- **Patient Portal**: Step-by-step navigation directions (Wing, Floor, Room No), digital priority token pass, and real-time report viewing.
-- **Doctor OPD Desk**: Digital prescription builder with one-click test selection, real-time diagnostic feed with critical metric flags, and one-click digital report verification.
-- **Lab Technician Console**: Counter selector, queue calling button with procedural Web Audio hospital chime & voice announcements, test runner, and structured clinical findings submission.
-- **Hospital Command Center & Radar**: Live floor queue depth radar across all 6 diagnostic departments with bottleneck alarms, capacity management, and simulated traffic surge testing (+5 / +8 patients).
+The dynamic queue engine continuously calculates the lowest-wait route for each patient, directing them to empty diagnostic bays first while congested queues clear out.
 
 ---
 
-## 🛠️ Tech Stack & Conventions
-- **Framework**: React 18 + Vite (TypeScript)
-- **Styling**: Tailwind CSS with custom medical theme, paper-card shadows, and micro-animations (referenced from SwasthSaarthi design patterns)
-- **Icons**: Lucide Icons
-- **Audio Synthesizer**: Native Web Audio API procedural dual-tone chime + Web Speech API synthesis
-- **Testing**: Vitest unit test suite
+## 🏛️ Architecture & Portals
+
+### 1. Authentic Portal Gate (`AuthScreen.tsx`)
+- **Patient Access**: Login via UHID (e.g. `QC-1082`, `QC-2026-9411`) or registered mobile number. Includes 1-click test patient profiles for immediate demonstration.
+- **Hospital Staff Access**:
+  - **Doctor OPD Access**: 1-click login for consulting physicians (e.g. Dr. Sarah Khan - OPD Room 12, Dr. Arvind Swaminathan - Room OPD-204).
+  - **Laboratory Counter Access**: 1-click login for diagnostic bays (Phlebotomy Bay Alpha, ECG Station 1, Radiology Bay 1, etc.).
+- Session persistence in local state with user profile and sign-out controls.
+
+### 2. Patient Portal (`PatientView.tsx`)
+- **Immediate Direct Directive**: Answers **"Where should I go right now?"** with exact counter, room number, projected wait time, and plain-language routing rationale.
+- **Investigation Timeline**: Step-by-step progress tracking with real-time statuses (`Completed`, `In Progress`, `Up Next`, `Waiting in Queue`).
+- **Clinical Diagnostic Reports**: Standard medical laboratory sheet with biological reference ranges, observed values, technician remarks, clinician signature, and print capability.
+- **Hospital Directory**: Clean room and floor guide.
+
+### 3. Doctor Portal (`DoctorView.tsx`)
+- **Today's OPD Queue**: Real-time outpatient list with diagnostic progress indicators.
+- **Clinical Chart & Prescriptions**: Modal to issue hospital lab investigations with preparation requirements.
+- **Report Review & Sign-Off**: 1-click clinical verification and notes sign-off.
+
+### 4. Lab Technician Station (`LabView.tsx`)
+- **Station Selector**: Switch between diagnostic bays (Blood Collection, ECG, Radiology, Ultrasound).
+- **Calling Console**: Call patient tokens with hospital chime and voice PA announcement.
+- **Results Entry**: Enter clinical parameter values and biological reference flags.
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ Tech Stack
 
-### Installation
-```bash
-npm install
-```
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
+- **Design System**: Minimalist Hospital Aesthetics (Cobalt Blue `#1d4ed8`, Crisp Whites `#ffffff`, Slate `#0f172a`)
+- **Audio**: Dual-tone procedural Web Audio hospital chime + Web Speech synthesis
+- **Testing**: Vitest (`npm test`)
 
-### Run Development Server
-```bash
-npm run dev
-```
-The app will be available at `http://localhost:3000`.
+---
 
-### Run Test Suite
+## 🚀 Commands
+
 ```bash
+# Run unit test suite
 npm test
-```
 
-### Production Build
-```bash
+# Check TypeScript types
+npx tsc --noEmit
+
+# Production build
 npm run build
 ```
