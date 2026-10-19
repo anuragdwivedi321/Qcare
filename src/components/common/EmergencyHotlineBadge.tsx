@@ -22,24 +22,29 @@ export const EmergencyHotlineBadge: React.FC<EmergencyHotlineBadgeProps> = ({
       <div 
         className={`${
           floating 
-            ? 'fixed bottom-6 left-6 z-40 print:hidden' 
+            ? 'fixed bottom-3 left-3 sm:bottom-6 sm:left-6 z-40 print:hidden' 
             : 'relative'
         } ${className}`}
       >
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="group flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-coral-50 hover:bg-coral-100/80 border border-coral-200 text-coral-700 shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
+          className="group flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-full bg-coral-50 hover:bg-coral-100/90 border border-coral-200 text-coral-700 shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer max-w-[calc(100vw-6rem)] sm:max-w-none"
           title="24/7 Emergency & Triage Hotline"
         >
-          <span className="relative flex h-3 w-3">
+          <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-coral-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-coral-600" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-coral-600" />
           </span>
 
-          <span className="text-xs font-black tracking-tight text-coral-800 flex items-center gap-1.5">
-            <PhoneCall className="w-3.5 h-3.5 text-coral-600 group-hover:rotate-12 transition-transform" />
-            <span>24/7 Emergency: <strong className="font-extrabold text-coral-900 tabular-nums">108 / {hotlineNumber}</strong></span>
+          <span className="text-xs font-black tracking-tight text-coral-800 flex items-center gap-1.5 truncate">
+            <PhoneCall className="w-3.5 h-3.5 text-coral-600 group-hover:rotate-12 transition-transform shrink-0" />
+            <span className="hidden sm:inline">
+              24/7 Emergency: <strong className="font-extrabold text-coral-900 tabular-nums">108 / {hotlineNumber}</strong>
+            </span>
+            <span className="sm:hidden font-extrabold text-coral-900 truncate">
+              Emergency: <strong className="font-black tabular-nums">108</strong>
+            </span>
           </span>
         </button>
       </div>

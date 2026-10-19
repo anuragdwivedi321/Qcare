@@ -82,33 +82,33 @@ export const PatientView: React.FC = () => {
   return (
     <div className="space-y-6 pb-16 font-sans">
       
-      {/* Minimal Clean Header & Navigation (Rule 1) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-        <div className="flex items-center gap-2">
+      {/* Minimal Clean Header & Navigation (Rule 1 & Mobile-First) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('journey')}
-            className={`py-2 px-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`min-h-[42px] sm:min-h-[40px] py-2 px-3.5 sm:px-4 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer ${
               activeTab === 'journey'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
             }`}
           >
-            <Footprints className="w-4 h-4" />
-            <span>{language === 'hi' ? 'जांच यात्रा' : 'Diagnostic Journey'}</span>
+            <Footprints className="w-4 h-4 shrink-0" />
+            <span className="truncate">{language === 'hi' ? 'जांच यात्रा' : 'Diagnostic Journey'}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('reports')}
-            className={`py-2 px-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`min-h-[42px] sm:min-h-[40px] py-2 px-3.5 sm:px-4 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer ${
               activeTab === 'reports'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'bg-white text-slate-700 hover:text-slate-900 border border-slate-200/90'
             }`}
           >
-            <FileText className="w-4 h-4" />
-            <span>{language === 'hi' ? 'रिपोर्ट्स' : 'Diagnostic Reports'}</span>
+            <FileText className="w-4 h-4 shrink-0" />
+            <span className="truncate">{language === 'hi' ? 'रिपोर्ट्स' : 'Diagnostic Reports'}</span>
             {patientReports.length > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
                 activeTab === 'reports' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
               }`}>
                 {patientReports.length}
@@ -118,39 +118,39 @@ export const PatientView: React.FC = () => {
         </div>
 
         {/* Language Toggle, Why QCare, Map, Print Slip */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between sm:justify-start">
           <button
             type="button"
             onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
-            className="px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="min-h-[38px] px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
           >
-            <Languages className="w-3.5 h-3.5 text-blue-600" />
+            <Languages className="w-3.5 h-3.5 text-teal-600" />
             <span>{language === 'en' ? 'हिंदी' : 'English'}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsReceiptOpen(true)}
-            className="px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="min-h-[38px] px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-slate-600" />
-            <span className="hidden sm:inline">{language === 'hi' ? 'पर्ची QR' : 'QR Slip'}</span>
+            <span>{language === 'hi' ? 'पर्ची QR' : 'QR Slip'}</span>
           </button>
 
           <button
             onClick={() => setShowWhyModal(true)}
-            className="px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-blue-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="min-h-[38px] px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-teal-800 text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">Why QCare?</span>
+            <Zap className="w-3.5 h-3.5 text-teal-600" />
+            <span>Why QCare?</span>
           </button>
 
           <button
             onClick={() => setShowRadarModal(true)}
-            className="px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            className="min-h-[38px] px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
           >
-            <Radio className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">{language === 'hi' ? 'अस्पताल नक्शा' : 'Hospital Map'}</span>
+            <Radio className="w-3.5 h-3.5 text-teal-600" />
+            <span>{language === 'hi' ? 'नक्शा' : 'Map'}</span>
           </button>
         </div>
       </div>

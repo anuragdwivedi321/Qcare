@@ -35,8 +35,15 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'qbie' | 'user'; text: string; time: string }>>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 640;
+    }
+    return false;
+  });
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Position coordinates of draggable avatar
+  // Position coordinates of draggable avatar (desktop)
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
     if (typeof window !== 'undefined') {
       return {
@@ -62,14 +69,25 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
   // Window resize bounds protection: ensures mascot never gets lost off-screen
   useEffect(() => {
     const handleResize = () => {
-      setPosition(prev => ({
-        x: Math.max(12, Math.min(window.innerWidth - avatarWidth - 12, prev.x)),
-        y: Math.max(12, Math.min(window.innerHeight - avatarHeight - 12, prev.y))
-      }));
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setPosition(prev => ({
+          x: Math.max(12, Math.min(window.innerWidth - avatarWidth - 12, prev.x)),
+          y: Math.max(12, Math.min(window.innerHeight - avatarHeight - 12, prev.y))
+        }));
+      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isTyping, isOpen]);
 
   // Mouse drag handlers
   useEffect(() => {
@@ -325,28 +343,40 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
 
   return (
     <>
-      {/* Freely Draggable Prominent Q-Bie Avatar (Rule 2) */}
+      {/* Prominent Q-Bie Avatar Trigger (Mobile thumb-docked / Desktop draggable) */}
       <div
-        style={{
-          position: 'fixed',
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          zIndex: 50,
-          touchAction: 'none'
-        }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        style={
+          isMobile
+            ? {
+                position: 'fixed',
+                right: '12px',
+                bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+                zIndex: 45,
+                touchAction: 'manipulation'
+              }
+            : {
+                position: 'fixed',
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                zIndex: 50,
+                touchAction: 'none'
+              }
+        }
+        onMouseDown={!isMobile ? handleMouseDown : undefined}
+        onTouchStart={!isMobile ? handleTouchStart : undefined}
+        onTouchMove={!isMobile ? handleTouchMove : undefined}
+        onTouchEnd={!isMobile ? handleTouchEnd : undefined}
         onClick={handleClickAvatar}
-        className={`group select-none cursor-grab active:cursor-grabbing transition-transform ${isDragging ? 'scale-105' : 'hover:scale-105'}`}
+        className={`group select-none ${!isMobile ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} transition-transform ${
+          isDragging ? 'scale-105' : 'hover:scale-105 active:scale-95'
+        }`}
       >
         <div className="relative flex items-center justify-center">
           {/* Pulsing Aura Halo */}
-          <span className="absolute inset-0 rounded-full bg-blue-500/25 animate-ping pointer-events-none" />
+          <span className="absolute inset-0 rounded-full bg-teal-500/25 animate-ping pointer-events-none" />
 
-          {/* Thick-Sized Avatar Bubble (Rule 2) */}
-          <div className="w-[74px] h-[74px] sm:w-[80px] sm:h-[80px] rounded-full bg-gradient-to-br from-white via-blue-50 to-indigo-100 border-4 border-blue-600 shadow-2xl flex items-center justify-center p-1.5 relative overflow-hidden backdrop-blur-md">
+          {/* Thick-Sized Avatar Bubble */}
+          <div className="w-[66px] h-[66px] sm:w-[80px] sm:h-[80px] rounded-full bg-gradient-to-br from-white via-teal-50 to-indigo-100 border-4 border-teal-600 shadow-2xl flex items-center justify-center p-1 relative overflow-hidden backdrop-blur-md">
             <img 
               src={`/robot_frames/robot_${frameIndex}.png`} 
               alt="Q-Bie AI Hospital Companion Mascot" 
@@ -355,30 +385,204 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
             />
 
             {/* Online Green Indicator Dot */}
-            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 absolute top-1 right-1 border-2 border-white shadow-xs" />
+            <span className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-emerald-500 absolute top-1 right-1 border-2 border-white shadow-xs" />
 
-            {/* Drag Handle Indicator */}
-            <div className="absolute bottom-0 inset-x-0 bg-slate-900/60 text-white text-[7px] font-black uppercase text-center tracking-tighter py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Desktop Drag Handle Indicator */}
+            <div className="hidden sm:block absolute bottom-0 inset-x-0 bg-slate-900/60 text-white text-[7px] font-black uppercase text-center tracking-tighter py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               Drag Me
             </div>
           </div>
 
           {/* Pill Badge Tag */}
-          <div className="absolute -bottom-2 bg-slate-950 text-white px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-tight border border-blue-400 shadow-md flex items-center gap-1 pointer-events-none whitespace-nowrap">
+          <div className="absolute -bottom-2 bg-slate-950 text-white px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold tracking-tight border border-teal-400 shadow-md flex items-center gap-1 pointer-events-none whitespace-nowrap">
             <Sparkles className="w-2.5 h-2.5 text-amber-400" />
             <span>Q-Bie AI</span>
           </div>
         </div>
       </div>
 
-      {/* Smart Responsive Dialogue Panel (Rule 3: Boundary-Aware Positioning) */}
-      {isOpen && (
+      {/* MOBILE BOTTOM-SHEET DRAWER (< 640px) */}
+      {isOpen && isMobile && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Dark Backdrop */}
+          <div 
+            className="fixed inset-0 bg-obsidian-950/60 backdrop-blur-xs transition-opacity animate-fadeIn"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Bottom Sheet Container */}
+          <div 
+            className="relative z-10 w-full bg-white rounded-t-3xl border-t border-slate-200/90 shadow-2xl flex flex-col max-h-[88vh] h-[82vh] overflow-hidden animate-slideUp text-slate-900"
+            style={{
+              boxShadow: '0 -10px 40px -10px rgba(15, 23, 42, 0.25)'
+            }}
+          >
+            {/* Top Drag Handle / Dismiss Touch Area */}
+            <div 
+              className="w-full pt-2.5 pb-1 flex justify-center cursor-pointer touch-none bg-slate-50"
+              onClick={() => setIsOpen(false)}
+            >
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+            </div>
+
+            {/* Header */}
+            <div className="px-4 py-3 bg-gradient-to-r from-teal-700 via-teal-800 to-obsidian-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-white/15 p-1 flex items-center justify-center border border-white/25 shrink-0">
+                  <img 
+                    src={`/robot_frames/robot_${frameIndex}.png`} 
+                    alt="Q-Bie" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="font-extrabold text-sm tracking-tight">Q-Bie AI Companion</h3>
+                    <span className="text-[10px] font-bold bg-emerald-400 text-slate-950 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
+                      <span>Groq Live</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-teal-100 flex items-center gap-1 font-medium mt-0.5">
+                    <Cpu className="w-3 h-3 shrink-0" />
+                    <span>Real-Time Diagnostic Queue Intelligence</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                aria-label="Close Q-Bie Panel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Chat Area */}
+            <div className="p-4 overflow-y-auto flex-1 space-y-3 bg-slate-50/70 text-sm">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex gap-2.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.sender === 'qbie' && (
+                    <div className="w-7 h-7 rounded-xl bg-teal-100 border border-teal-200 p-0.5 shrink-0 self-end">
+                      <img 
+                        src={`/robot_frames/robot_${frameIndex}.png`} 
+                        alt="Q-Bie" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] p-3 rounded-2xl shadow-2xs leading-relaxed text-xs sm:text-sm whitespace-pre-wrap ${
+                      msg.sender === 'user'
+                        ? 'bg-teal-700 text-white rounded-br-xs font-medium'
+                        : 'bg-white text-slate-800 border border-slate-200/90 rounded-bl-xs font-normal'
+                    }`}
+                  >
+                    <p>{msg.text}</p>
+                    <span className={`text-[9px] block mt-1.5 font-medium ${msg.sender === 'user' ? 'text-teal-200' : 'text-slate-400'}`}>
+                      {msg.time}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="flex items-center gap-2 text-slate-500 text-xs italic pl-9">
+                  <span className="w-2 h-2 rounded-full bg-teal-600 animate-bounce" />
+                  <span className="w-2 h-2 rounded-full bg-teal-600 animate-bounce delay-100" />
+                  <span className="w-2 h-2 rounded-full bg-teal-600 animate-bounce delay-200" />
+                  <span className="font-medium">Q-Bie is analyzing real-time hospital queues...</span>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Quick Suggestions - Touch friendly (min-h-[44px]) */}
+            <div className="p-3 bg-white border-t border-slate-200 space-y-2 shrink-0">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>{language === 'hi' ? 'त्वरित प्रश्न (1-टैप)' : 'Quick Answers (1-Tap)'}</span>
+                </span>
+                <span className="text-[10px] text-teal-700 font-bold">Fast Routing</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickQuestion('where')}
+                  className="min-h-[44px] px-3 py-2 text-left bg-slate-50 hover:bg-teal-50 active:bg-teal-100 border border-slate-200 hover:border-teal-300 rounded-xl text-xs font-bold text-slate-800 hover:text-teal-900 transition-all flex items-center justify-between active:scale-98 cursor-pointer"
+                >
+                  <span className="truncate">📍 {language === 'hi' ? 'कहाँ जाना है?' : 'Where to go now?'}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickQuestion('why_skip')}
+                  className="min-h-[44px] px-3 py-2 text-left bg-slate-50 hover:bg-teal-50 active:bg-teal-100 border border-slate-200 hover:border-teal-300 rounded-xl text-xs font-bold text-slate-800 hover:text-teal-900 transition-all flex items-center justify-between active:scale-98 cursor-pointer"
+                >
+                  <span className="truncate">⚡ {language === 'hi' ? 'समय कैसे बचा?' : 'Why smart route?'}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickQuestion('explain_reports')}
+                  className="min-h-[44px] px-3 py-2 text-left bg-slate-50 hover:bg-teal-50 active:bg-teal-100 border border-slate-200 hover:border-teal-300 rounded-xl text-xs font-bold text-slate-800 hover:text-teal-900 transition-all flex items-center justify-between active:scale-98 cursor-pointer"
+                >
+                  <span className="truncate">📋 {language === 'hi' ? 'रिपोर्ट स्थिति' : 'Report status'}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickQuestion('how_called')}
+                  className="min-h-[44px] px-3 py-2 text-left bg-slate-50 hover:bg-teal-50 active:bg-teal-100 border border-slate-200 hover:border-teal-300 rounded-xl text-xs font-bold text-slate-800 hover:text-teal-900 transition-all flex items-center justify-between active:scale-98 cursor-pointer"
+                >
+                  <span className="truncate">🕒 {language === 'hi' ? 'मेरी बारी कब?' : 'How am I called?'}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Input - 44px touch height, 16px font to prevent mobile zoom */}
+            <form 
+              onSubmit={handleSendMessage} 
+              className="p-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+            >
+              <input
+                type="text"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                placeholder={language === 'hi' ? 'कमरा, फास्टिंग या रिपोर्ट पूछें...' : 'Ask Q-Bie (room, fasting, test)...'}
+                className="flex-1 h-11 px-3.5 bg-white border border-slate-300 rounded-2xl text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim()}
+                className="w-11 h-11 rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md shrink-0 cursor-pointer"
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP FLOATING DIALOGUE PANEL (>= 640px) */}
+      {isOpen && !isMobile && (
         <div 
           style={panelStyle}
           className="bg-white rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col animate-scaleUp text-slate-900"
         >
           {/* Header */}
-          <div className="p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between shrink-0">
+          <div className="p-3.5 bg-gradient-to-r from-teal-700 via-teal-800 to-obsidian-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-2xl bg-white/15 p-1 flex items-center justify-center border border-white/20">
                 <img 
@@ -395,7 +599,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
                     <span>Groq Live</span>
                   </span>
                 </div>
-                <p className="text-[10px] text-blue-100 flex items-center gap-1">
+                <p className="text-[10px] text-teal-100 flex items-center gap-1">
                   <Cpu className="w-2.5 h-2.5" />
                   <span>qwen3.8-27b • Real Hospital Context</span>
                 </p>
@@ -404,7 +608,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
 
             <button
               onClick={() => setIsOpen(false)}
-              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -418,7 +622,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
                 className={`flex gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.sender === 'qbie' && (
-                  <div className="w-6 h-6 rounded-lg bg-blue-100 border border-blue-200 p-0.5 shrink-0 self-end">
+                  <div className="w-6 h-6 rounded-lg bg-teal-100 border border-teal-200 p-0.5 shrink-0 self-end">
                     <img 
                       src={`/robot_frames/robot_${frameIndex}.png`} 
                       alt="Q-Bie" 
@@ -429,12 +633,12 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
                 <div
                   className={`max-w-[84%] p-2.5 rounded-2xl shadow-2xs leading-relaxed whitespace-pre-wrap ${
                     msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-xs'
+                      ? 'bg-teal-700 text-white rounded-br-xs'
                       : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
                   }`}
                 >
                   <p>{msg.text}</p>
-                  <span className={`text-[8px] block mt-1 ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                  <span className={`text-[8px] block mt-1 ${msg.sender === 'user' ? 'text-teal-200' : 'text-slate-400'}`}>
                     {msg.time}
                   </span>
                 </div>
@@ -443,12 +647,13 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
 
             {isTyping && (
               <div className="flex items-center gap-1.5 text-slate-400 text-xs italic pl-8">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce delay-100" />
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce delay-200" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce delay-100" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce delay-200" />
                 <span>Q-Bie is thinking with Groq AI...</span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Quick Suggestions Chips */}
@@ -460,7 +665,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickQuestion('where')}
-                className="p-1.5 text-left bg-slate-50 hover:bg-blue-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-blue-700 transition-colors flex items-center justify-between"
+                className="p-1.5 text-left bg-slate-50 hover:bg-teal-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-teal-800 transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span className="truncate">📍 {language === 'hi' ? 'कहाँ जाना है?' : 'Where to go now?'}</span>
                 <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
@@ -469,7 +674,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickQuestion('why_skip')}
-                className="p-1.5 text-left bg-slate-50 hover:bg-blue-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-blue-700 transition-colors flex items-center justify-between"
+                className="p-1.5 text-left bg-slate-50 hover:bg-teal-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-teal-800 transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span className="truncate">⚡ {language === 'hi' ? 'समय कैसे बचा?' : 'Why smart route?'}</span>
                 <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
@@ -478,7 +683,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickQuestion('explain_reports')}
-                className="p-1.5 text-left bg-slate-50 hover:bg-blue-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-blue-700 transition-colors flex items-center justify-between"
+                className="p-1.5 text-left bg-slate-50 hover:bg-teal-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-teal-800 transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span className="truncate">📋 {language === 'hi' ? 'मेरी रिपोर्ट स्थिति' : 'Report status'}</span>
                 <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
@@ -487,7 +692,7 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
               <button
                 type="button"
                 onClick={() => handleQuickQuestion('how_called')}
-                className="p-1.5 text-left bg-slate-50 hover:bg-blue-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-blue-700 transition-colors flex items-center justify-between"
+                className="p-1.5 text-left bg-slate-50 hover:bg-teal-50/70 border border-slate-200 rounded-xl text-[10px] font-semibold text-slate-700 hover:text-teal-800 transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span className="truncate">🕒 {language === 'hi' ? 'मेरी बारी कब?' : 'How am I called?'}</span>
                 <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
@@ -502,12 +707,12 @@ export const QBieCompanion: React.FC<QBieCompanionProps> = ({
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
               placeholder={language === 'hi' ? 'फास्टिंग, कमरा या रिपोर्ट के बारे में पूछें...' : 'Ask Q-Bie anything (fasting, room, reports)...'}
-              className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+              className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent transition-all"
             />
             <button
               type="submit"
               disabled={!inputValue.trim()}
-              className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white transition-all shadow-2xs"
+              className="p-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white transition-all shadow-2xs cursor-pointer"
             >
               <Send className="w-3 h-3" />
             </button>

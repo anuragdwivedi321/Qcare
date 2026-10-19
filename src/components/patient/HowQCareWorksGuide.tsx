@@ -11,25 +11,30 @@ import {
 } from 'lucide-react';
 
 export const HowQCareWorksGuide: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
 
   return (
-    <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 rounded-3xl border border-blue-200/80 p-4 sm:p-5 shadow-xs transition-all">
+    <div className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-teal-50/80 rounded-2xl sm:rounded-3xl border border-teal-200/80 p-3.5 sm:p-5 shadow-xs transition-all">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-2xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
             <Sparkles className="w-4 h-4 text-amber-300" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm sm:text-base font-extrabold text-obsidian-900 tracking-tight truncate">
                 How Q-Care Works for You
               </h2>
-              <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 border border-blue-200 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-teal-800 bg-teal-100/80 border border-teal-200 px-2 py-0.5 rounded-full">
                 Quick Guide
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5 truncate sm:whitespace-normal">
               4 simple steps that save you 45+ minutes in your diagnostic checkup.
             </p>
           </div>
@@ -37,7 +42,7 @@ export const HowQCareWorksGuide: React.FC = () => {
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 flex items-center gap-1.5 transition-colors shadow-2xs shrink-0"
+          className="min-h-[40px] px-3 py-1.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200 flex items-center gap-1.5 transition-colors shadow-2xs shrink-0 active:scale-95 cursor-pointer"
         >
           <span>{isOpen ? 'Minimize' : 'View Guide'}</span>
           {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}

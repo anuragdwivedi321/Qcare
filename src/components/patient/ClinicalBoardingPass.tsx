@@ -201,51 +201,51 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
     <div className="space-y-6">
       
       {/* 1. Patient Profile Strip */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-blue-100 border border-blue-200 text-blue-800 flex items-center justify-center font-bold shrink-0">
-            <User className="w-5 h-5 text-blue-700" />
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center font-bold shrink-0">
+            <User className="w-5 h-5 text-teal-700" />
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-extrabold text-obsidian-900 tracking-tight truncate">
                 {patient.name}
               </h2>
-              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 font-mono">
+              <span className="text-[11px] sm:text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 tabular-nums">
                 {patient.uhid}
               </span>
-              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full tabular-nums">
                 {patient.age}Y • {patient.gender}
               </span>
               {patient.doctorPriority && patient.doctorPriority !== 'normal' && (
                 <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                  patient.doctorPriority === 'urgent' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                  patient.doctorPriority === 'urgent' ? 'bg-coral-100 text-coral-700 border border-coral-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
                 }`}>
                   {patient.doctorPriority}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 truncate">
               Doctor: <strong className="text-slate-800 font-semibold">{patient.prescribedDoctorName}</strong> ({doctorRoom})
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+        <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2.5 sm:pt-0 border-slate-100">
           {onPrintSlip && (
             <button
               type="button"
               onClick={onPrintSlip}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors"
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{language === 'hi' ? 'पर्ची प्रिंट' : 'Print Slip'}</span>
             </button>
           )}
 
-          <div className="text-left sm:text-right">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">{t.token}</span>
-            <span className="text-base font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-2xl border border-blue-200 inline-block font-mono">
+          <div className="text-right">
+            <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase block">{t.token}</span>
+            <span className="text-sm sm:text-base font-extrabold text-teal-800 bg-teal-50 px-3 py-1 rounded-2xl border border-teal-200 inline-block tabular-nums shadow-2xs">
               {activeTokenNumber}
             </span>
           </div>
@@ -283,7 +283,7 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
       )}
 
       {/* 2. Primary Direction Hero Card (User Rule 4: Next Step Guidance) */}
-      <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl border-2 border-blue-500/30 shadow-md p-6 sm:p-8 space-y-5 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-white via-slate-50/80 to-teal-50/30 rounded-2xl sm:rounded-3xl border-2 border-teal-500/30 shadow-md p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 relative overflow-hidden">
         
         {/* Animated Direction Indicator (Rule 4) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -298,46 +298,46 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
               <button
                 type="button"
                 onClick={() => handleSelectManual(null)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all shadow-2xs"
+                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200 transition-all shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Zap className="w-3.5 h-3.5 text-blue-600" />
+                <Zap className="w-3.5 h-3.5 text-teal-600" />
                 <span>⚡ Reset to AI Recommended</span>
               </button>
             )}
 
             {/* Pulsing Animated Arrow */}
-            <div className="flex items-center text-blue-600 font-black text-xs animate-pulse gap-1">
+            <div className="flex items-center text-teal-700 font-extrabold text-xs animate-pulse gap-1">
               <span>{t.nextStep}</span>
               <ArrowRight className="w-4 h-4 animate-bounce" />
             </div>
           </div>
 
-          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-500 flex items-center gap-1 tabular-nums">
             <Clock className="w-3.5 h-3.5" />
             <span>Check-in: {patient.registrationTime}</span>
           </span>
         </div>
 
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-obsidian-950 tracking-tight leading-snug">
             {directiveTitle}
           </h1>
-          <p className="text-sm text-slate-600 mt-1 font-medium leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 font-medium leading-relaxed max-w-2xl">
             {directiveSubtitle}
           </p>
         </div>
 
         {/* Location & Room Pill */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-              <MapPin className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5 text-teal-600" />
             </div>
             <div>
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 {t.floor} & {t.room}
               </div>
-              <div className="text-base font-bold text-slate-900">
+              <div className="text-base sm:text-lg font-black text-obsidian-900">
                 {targetRoom}
               </div>
               <div className="text-xs text-slate-500">
@@ -346,14 +346,14 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+          <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2.5 sm:pt-0 border-slate-100">
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">{t.estimatedWait}</span>
-              <span className="text-lg font-bold text-slate-900">
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase block">{t.estimatedWait}</span>
+              <span className="text-base sm:text-lg font-extrabold text-teal-900 tabular-nums">
                 {waitMinutesText}
               </span>
               {effectiveStep && !allCompleted && !isDischarged && (
-                <span className="text-[10px] text-blue-600 block font-bold mt-0.5">
+                <span className="text-[10px] text-teal-700 block font-bold mt-0.5 tabular-nums">
                   ({calculatedPatientsAhead} ahead • ~{avgDurationMinutes}m/test)
                 </span>
               )}
@@ -362,10 +362,10 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
               <>
                 <div className="h-7 w-px bg-slate-200" />
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase block">
                     {language === 'hi' ? 'आगे मरीज' : 'Ahead in line'}
                   </span>
-                  <span className="text-lg font-bold text-slate-900">
+                  <span className="text-base sm:text-lg font-extrabold text-obsidian-900 tabular-nums">
                     {calculatedPatientsAhead} <span className="text-xs font-normal text-slate-500">{language === 'hi' ? 'मरीज' : 'people'}</span>
                   </span>
                 </div>
@@ -375,7 +375,7 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
         </div>
 
         {/* Symptoms / Registered Complaints Banner */}
-        <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-950 flex items-start gap-2.5">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-950 flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-xs">
             <span className="font-bold text-amber-900 block">{language === 'hi' ? 'लक्षण:' : 'Registered Symptoms:'}</span>
@@ -437,8 +437,8 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
           </div>
         )}
 
-        {/* Case B: Prescribed Investigations Active */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 overflow-x-auto p-1.5 py-3">
+        {/* Case B: Prescribed Investigations Active (Responsive Vertical on Mobile / Horizontal on Desktop) */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 lg:gap-3 lg:overflow-x-auto p-1 py-2">
           {routingPlan.smartRouteSteps.map((step, idx) => {
             const isDone = patient.completedTests.includes(step.testId);
             const isManualTarget = isManualActive && activeManualTestId === step.testId;
@@ -458,14 +458,14 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
                       handleSelectManual(activeManualTestId === step.testId ? null : step.testId);
                     }
                   }}
-                  className={`flex-1 min-w-[230px] sm:min-w-[250px] p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
+                  className={`min-w-0 w-full lg:w-auto lg:min-w-[240px] lg:flex-1 p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between active:scale-[0.99] ${
                     isDone
                       ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-2xs hover:border-emerald-400 cursor-pointer'
                       : isCurrent
-                      ? 'bg-gradient-to-b from-blue-50/90 via-white to-indigo-50/40 border-blue-600 ring-2 ring-blue-500/50 text-slate-900 shadow-md cursor-pointer'
+                      ? 'bg-gradient-to-b from-teal-50/90 via-white to-teal-50/40 border-teal-600 ring-2 ring-teal-500/50 text-slate-900 shadow-md cursor-pointer'
                       : isStepUnavailable
                       ? 'bg-amber-50/40 border-amber-300 text-slate-600 cursor-not-allowed opacity-80'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-xs cursor-pointer'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-teal-300 hover:shadow-xs cursor-pointer'
                   }`}
                 >
                   <div>
@@ -474,21 +474,21 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
                         Step {idx + 1}
                       </span>
                       {isDone ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-2xs shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-2xs shrink-0">
                           <Check className="w-3 h-3 stroke-[3]" />
                           <span>Done</span>
                         </span>
                       ) : isManualTarget ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-600 text-white shadow-2xs shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-2xs shrink-0">
                           🎯 Selected
                         </span>
                       ) : isAiTarget ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black bg-blue-600 text-white shadow-xs shrink-0 animate-pulse">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-teal-600 text-white shadow-xs shrink-0 animate-pulse">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
                           <span>GO HERE NEXT</span>
                         </span>
                       ) : isStepUnavailable ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
                           Unavailable
                         </span>
                       ) : (
@@ -498,33 +498,33 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
                       )}
                     </div>
 
-                    <div className="font-bold text-xs text-slate-900 leading-snug">
+                    <div className="font-extrabold text-sm text-obsidian-900 leading-snug">
                       {step.testName}
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">{step.location.room.split('(')[0]}</span>
                     </div>
                     {isCurrent && !isDone && (
-                      <div className="mt-2.5 flex items-center justify-between text-[10px] font-bold text-blue-800 bg-blue-100/90 px-2.5 py-1.5 rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="mt-2.5 flex items-center justify-between text-[11px] font-bold text-teal-900 bg-teal-100/90 px-3 py-2 rounded-xl border border-teal-200 shadow-2xs">
                         <span className="flex items-center gap-1.5 truncate">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping shrink-0" />
+                          <span className="w-2 h-2 rounded-full bg-teal-600 animate-ping shrink-0" />
                           <span className="truncate">Walk to {step.location.room.split('(')[0]}</span>
                         </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-blue-600 animate-bounce shrink-0 ml-1" />
+                        <ArrowRight className="w-3.5 h-3.5 text-teal-700 animate-bounce shrink-0 ml-1" />
                       </div>
                     )}
                   </div>
 
                   <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-2">
-                    <div className="flex items-center justify-between text-[10px] font-bold gap-2">
+                    <div className="flex items-center justify-between text-xs font-bold gap-2">
                       {isDone ? (
                         <>
                           <span className="text-emerald-700 flex items-center gap-1">
                             ✓ Verified
                           </span>
                           {onViewReports && (
-                            <span className="text-blue-600 hover:text-blue-800 underline font-bold">
+                            <span className="text-teal-700 hover:text-teal-900 underline font-bold">
                               Report ➔
                             </span>
                           )}
@@ -535,17 +535,17 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
                         </span>
                       ) : (
                         <>
-                          <span className={`truncate ${isCurrent ? 'text-blue-700 font-bold' : 'text-slate-500'}`}>
+                          <span className={`truncate ${isCurrent ? 'text-teal-800 font-extrabold' : 'text-slate-500'}`}>
                             {isManualTarget ? 'Destination ➔' : isAiTarget ? 'Up Next ➔' : 'Estimated Wait'}
                           </span>
-                          <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md font-bold shrink-0">
+                          <span className="text-obsidian-900 bg-slate-100 px-2 py-0.5 rounded-md font-bold tabular-nums shrink-0">
                             ~{formatWaitRange(step.estimatedWaitMinutes)}
                           </span>
                         </>
                       )}
                     </div>
 
-                    {/* Patient Self-Complete Option (User Request: "patient ko option do ki vo khud bhe completed mark kar sake") */}
+                    {/* Patient Self-Complete Option */}
                     {!isDone && !isStepUnavailable && (
                       <button
                         type="button"
@@ -553,36 +553,45 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
                           e.stopPropagation();
                           markTestCompletedByPatient(patient.id, step.testId);
                         }}
-                        className="w-full py-1 px-2 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer"
+                        className="w-full min-h-[40px] py-2 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-200 hover:border-emerald-300 transition-colors active:scale-98 cursor-pointer"
                         title="Mark complete if you already have this report"
                       >
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>Have report? Mark done</span>
                       </button>
                     )}
                   </div>
                 </div>
 
+                {/* Flow connector between steps */}
                 {idx < routingPlan.smartRouteSteps.length - 1 && (
-                  <div className="hidden sm:flex items-center justify-center text-slate-300 px-0.5">
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
+                  <>
+                    <div className="lg:hidden flex justify-center py-0.5 text-teal-600">
+                      <ArrowRight className="w-4 h-4 rotate-90" />
+                    </div>
+                    <div className="hidden lg:flex items-center justify-center text-slate-300 px-0.5">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </>
                 )}
               </React.Fragment>
             );
           })}
 
-          {/* Final Return to Doctor Step */}
-          <div className="hidden sm:flex items-center justify-center text-slate-300 px-0.5">
+          {/* Final Return to Doctor Step Connector */}
+          <div className="lg:hidden flex justify-center py-0.5 text-teal-600">
+            <ArrowRight className="w-4 h-4 rotate-90" />
+          </div>
+          <div className="hidden lg:flex items-center justify-center text-slate-300 px-0.5">
             <ArrowRight className="w-4 h-4" />
           </div>
 
           <div
-            className={`flex-1 min-w-[210px] p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${
+            className={`min-w-0 w-full lg:w-auto lg:min-w-[220px] lg:flex-1 p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${
               isDischarged
                 ? 'bg-slate-50 border-emerald-300 text-slate-800 shadow-2xs'
                 : allCompleted
-                ? 'bg-gradient-to-br from-emerald-50 to-white border-emerald-500 ring-4 ring-emerald-500/30 text-emerald-950 shadow-lg scale-[1.02] animate-pulse'
+                ? 'bg-gradient-to-br from-emerald-50 to-white border-emerald-500 ring-4 ring-emerald-500/30 text-emerald-950 shadow-lg scale-[1.01] animate-pulse'
                 : 'bg-white border-slate-200 text-slate-500 opacity-80'
             }`}
           >
@@ -610,21 +619,21 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
               </div>
 
               <div>
-                <div className="font-bold text-xs text-slate-900 leading-snug">
+                <div className="font-extrabold text-sm text-obsidian-900 leading-snug">
                   Final Consultation with {patient.prescribedDoctorName} ({doctorRoom})
                 </div>
-                <div className="text-[11px] font-semibold text-blue-700 mt-1">
+                <div className="text-xs font-bold text-teal-700 mt-1 tabular-nums">
                   OPD Token #{patient.opdTokenNumber || 'OPD-104'}
                 </div>
                 {allCompleted && (
-                  <div className="text-[10px] font-bold text-emerald-800 mt-1.5 bg-emerald-100/90 px-2 py-0.5 rounded-lg border border-emerald-200">
+                  <div className="text-[11px] font-bold text-emerald-800 mt-2 bg-emerald-100/90 px-2.5 py-1 rounded-xl border border-emerald-200">
                     Please return to your doctor / consultation area.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold">
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold">
               {isDischarged ? (
                 <span className="text-emerald-700 flex items-center gap-1">
                   ✓ Consultation Finished & Discharged
@@ -714,11 +723,11 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-3 border-t border-slate-100">
           {onOpenRadar && (
             <button
               onClick={onOpenRadar}
-              className="px-4 py-2 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 transition-colors shadow-2xs"
+              className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-2xs active:scale-98 cursor-pointer"
             >
               <span>{language === 'hi' ? 'अस्पताल नक्शा देखें' : 'View Hospital Map'}</span>
             </button>
@@ -727,7 +736,7 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
           {allCompleted && onViewReports && (
             <button
               onClick={onViewReports}
-              className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 transition-colors shadow-md"
+              className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-98 cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{language === 'hi' ? 'रिपोर्ट देखें ➔' : 'View Reports ➔'}</span>
