@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useHospitalStore } from '../../store/useHospitalStore';
 import { WhyQCareModal } from './WhyQCareModal';
+import { SearchableCombobox } from './SearchableCombobox';
+import { MedicalTooltip } from './MedicalTooltip';
 
 export const Header: React.FC = () => {
   const {
@@ -137,21 +139,24 @@ export const Header: React.FC = () => {
 
             <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
-            {/* Clean Hospital Branch Dropdown */}
-            <div className="relative inline-flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 hidden md:inline-block shrink-0" />
-              <select
+            {/* Modern Searchable Hospital Branch Combobox */}
+            <div className="w-[140px] sm:w-[200px]">
+              <SearchableCombobox
+                options={hospitals.map(h => ({
+                  id: h.id,
+                  label: h.shortName || h.name,
+                  subtext: `${h.city || 'Campus'} • ${h.badge}`,
+                  category: h.state || 'Metro Branches',
+                  badge: h.badge,
+                  badgeColor: 'teal'
+                }))}
                 value={currentHospitalId}
-                onChange={e => setHospital(e.target.value)}
-                className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer hover:bg-slate-100 transition-colors shadow-2xs max-w-[130px] sm:max-w-[200px] truncate"
-                title="Switch Hospital Branch / Tenant Scope"
-              >
-                {hospitals.map(h => (
-                  <option key={h.id} value={h.id}>
-                    {h.shortName} ({h.badge})
-                  </option>
-                ))}
-              </select>
+                onChange={setHospital}
+                placeholder="Switch Hospital..."
+                searchPlaceholder="Search branch or city..."
+                size="sm"
+                triggerClassName="py-1 px-2.5 rounded-xl border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-obsidian-800"
+              />
             </div>
           </div>
         </div>
@@ -178,9 +183,12 @@ export const Header: React.FC = () => {
         {/* Portal Identifier Pill */}
         <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200/90 text-xs shadow-2xs shrink-0">
           <span className={`w-2 h-2 rounded-full ${portalBadge.dotColor} animate-pulse`} />
-          <span className="font-bold text-slate-700">
-            {portalBadge.title}
-          </span>
+          <MedicalTooltip
+            term={portalBadge.title}
+            explanation="Active authenticated role session and workstation access level."
+            clinicalSource="Hospital Role-Based Access Control"
+            inlineDotted={false}
+          />
         </div>
 
         {/* User Profile, Clock, Controls & Exit */}

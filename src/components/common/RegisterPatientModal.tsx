@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { useHospitalStore } from '../../store/useHospitalStore';
 import { PriorityLevel, PatientTriageInfo } from '../../types';
+import { SearchableCombobox } from './SearchableCombobox';
+import { MedicalTooltip } from './MedicalTooltip';
+import { SecurityPopover } from './SecurityPopover';
 
 interface RegisterPatientModalProps {
   isOpen: boolean;
@@ -293,16 +296,19 @@ export const RegisterPatientModal: React.FC<RegisterPatientModalProps> = ({
 
                 {/* Mobile Phone */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Phone Number *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Phone Number *
+                    </label>
+                    <SecurityPopover label="256-Bit Encrypted" />
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
                       value={contact}
                       onChange={e => setContact(e.target.value)}
                       placeholder="e.g. +91 98200 12345"
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:bg-white transition-all tabular-nums"
                     />
                     <Phone className="w-3.5 h-3.5 text-slate-400 absolute right-3.5 top-2.5 pointer-events-none" />
                   </div>
@@ -321,50 +327,54 @@ export const RegisterPatientModal: React.FC<RegisterPatientModalProps> = ({
                       value={age}
                       onChange={e => setAge(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="e.g. 62"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:bg-white transition-all tabular-nums"
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Gender *
                     </label>
-                    <select
+                    <SearchableCombobox
+                      options={[
+                        { id: 'Male', label: 'Male' },
+                        { id: 'Female', label: 'Female' },
+                        { id: 'Other', label: 'Other' },
+                      ]}
                       value={gender}
-                      onChange={e => setGender(e.target.value as any)}
-                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all cursor-pointer"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
+                      onChange={val => setGender(val as any)}
+                      placeholder="Select Gender"
+                      size="sm"
+                    />
                   </div>
                 </div>
 
                 {/* Consulting Doctor */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Consulting Doctor *
-                  </label>
-                  <select
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Consulting Doctor *
+                    </label>
+                    <MedicalTooltip
+                      term="Clinical OPD Chamber"
+                      explanation="Select the consulting physician for this visit. The patient will be routed to their OPD room."
+                      clinicalSource="Hospital Clinical Administration"
+                    />
+                  </div>
+                  <SearchableCombobox
+                    options={doctors.map(d => ({
+                      id: d.id,
+                      label: `${d.name} (${d.roomNo})`,
+                      subtext: d.department,
+                      category: d.department,
+                      badge: `${d.activePatientCount} waiting`,
+                      badgeColor: 'teal'
+                    }))}
                     value={selectedDoctorId}
-                    onChange={e => setSelectedDoctorId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all cursor-pointer font-medium"
-                  >
-                    {doctors.length === 0 ? (
-                      <>
-                        <option value="doc-01">Dr. Arvind Swaminathan (OPD-204)</option>
-                        <option value="doc-02">Dr. Priya Shenoy (OPD-108)</option>
-                        <option value="doc-03">Dr. Vikramaditya Rao (Rad-Lead-01)</option>
-                        <option value="doc-sarah">Dr. Sarah Khan (OPD Room 12)</option>
-                      </>
-                    ) : (
-                      doctors.map(d => (
-                        <option key={d.id} value={d.id}>
-                          {d.name} ({d.roomNo}) — {d.department}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                    onChange={setSelectedDoctorId}
+                    placeholder="Select Consulting Doctor..."
+                    searchPlaceholder="Search doctor or room..."
+                    size="md"
+                  />
                 </div>
               </div>
 

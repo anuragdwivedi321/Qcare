@@ -8,6 +8,7 @@ import { SuperAdminView } from './components/superadmin/SuperAdminView';
 import { HospitalAdminView } from './components/admin/HospitalAdminView';
 import { DoctorAssistantView } from './components/assistant/DoctorAssistantView';
 import { PatientKioskView } from './components/kiosk/PatientKioskView';
+import { EmergencyHotlineBadge } from './components/common/EmergencyHotlineBadge';
 import { useHospitalStore } from './store/useHospitalStore';
 import { Sparkles, X, ShieldCheck } from 'lucide-react';
 
@@ -93,6 +94,9 @@ export default function App() {
         {activeRole === 'hospital_admin' && <HospitalAdminView />}
         {(activeRole === 'doctor_assistant' || activeRole === 'reception') && <DoctorAssistantView />}
       </main>
+
+      {/* 24/7 Hospital Emergency & Triage Hotline Floating Anchor */}
+      <EmergencyHotlineBadge />
 
       {/* Clean Hospital Footer */}
       <footer className="border-t border-slate-200 bg-white py-3.5 text-xs text-slate-500">

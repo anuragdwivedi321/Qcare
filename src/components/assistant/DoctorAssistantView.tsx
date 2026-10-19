@@ -16,6 +16,9 @@ import {
 import { useHospitalStore } from '../../store/useHospitalStore';
 import { DoctorPriority, Patient } from '../../types';
 import { PrintableReceipt } from '../common/PrintableReceipt';
+import { SearchableCombobox } from '../common/SearchableCombobox';
+import { SecurityPopover } from '../common/SecurityPopover';
+import { MedicalTooltip } from '../common/MedicalTooltip';
 
 export const DoctorAssistantView: React.FC = () => {
   const {
@@ -260,72 +263,81 @@ export const DoctorAssistantView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Gender <span className="text-rose-500">*</span>
+                    Gender <span className="text-coral-500">*</span>
                   </label>
-                  <select
+                  <SearchableCombobox
+                    options={[
+                      { id: 'Male', label: 'Male' },
+                      { id: 'Female', label: 'Female' },
+                      { id: 'Other', label: 'Other' },
+                    ]}
                     value={patientGender}
-                    onChange={e => setPatientGender(e.target.value as any)}
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    onChange={val => setPatientGender(val as any)}
+                    placeholder="Select Gender"
+                    size="sm"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Mobile Number <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Mobile Number <span className="text-coral-500">*</span>
+                  </label>
+                  <SecurityPopover label="256-Bit Encrypted" />
+                </div>
                 <input
                   type="tel"
                   value={patientMobile}
                   onChange={e => setPatientMobile(e.target.value)}
                   placeholder="e.g. 9876543210"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none transition-all tabular-nums"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Prescribing Doctor</label>
-                  <select
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">Prescribing Doctor</label>
+                    <MedicalTooltip
+                      term="OPD Desk"
+                      explanation="Select the consulting physician issuing this diagnostic investigation prescription."
+                      clinicalSource="Clinical Governance Rule"
+                    />
+                  </div>
+                  <SearchableCombobox
+                    options={doctors.map(d => ({
+                      id: d.id,
+                      label: `${d.name} (${d.roomNo})`,
+                      subtext: d.department,
+                      category: d.department,
+                      badge: `${d.activePatientCount} queued`,
+                      badgeColor: 'teal'
+                    }))}
                     value={selectedDoctorId}
-                    onChange={e => setSelectedDoctorId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all cursor-pointer font-medium text-slate-800"
-                  >
-                    {doctors.length === 0 ? (
-                      <>
-                        <option value="doc-01">Dr. Arvind Swaminathan (OPD-204)</option>
-                        <option value="doc-02">Dr. Priya Shenoy (OPD-108)</option>
-                        <option value="doc-03">Dr. Vikramaditya Rao (Rad-Lead-01)</option>
-                        <option value="doc-sarah">Dr. Sarah Khan (OPD Room 12)</option>
-                      </>
-                    ) : (
-                      doctors.map(d => (
-                        <option key={d.id} value={d.id}>
-                          {d.name} ({d.roomNo}) — {d.department}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                    onChange={setSelectedDoctorId}
+                    placeholder="Select Doctor..."
+                    searchPlaceholder="Search doctor or OPD..."
+                    size="sm"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
-                  <select
+                  <SearchableCombobox
+                    options={[
+                      { id: 'General Medicine', label: 'General Medicine' },
+                      { id: 'Cardiology', label: 'Cardiology' },
+                      { id: 'Orthopedics', label: 'Orthopedics' },
+                      { id: 'Gastroenterology', label: 'Gastroenterology' },
+                      { id: 'Neurology', label: 'Neurology' },
+                    ]}
                     value={department}
-                    onChange={e => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                  >
-                    <option value="General Medicine">General Medicine</option>
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Orthopedics">Orthopedics</option>
-                    <option value="Gastroenterology">Gastroenterology</option>
-                    <option value="Neurology">Neurology</option>
-                  </select>
+                    onChange={setDepartment}
+                    placeholder="Select Department..."
+                    size="sm"
+                  />
                 </div>
               </div>
 

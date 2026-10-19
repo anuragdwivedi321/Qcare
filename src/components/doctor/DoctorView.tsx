@@ -12,10 +12,14 @@ import {
   UserPlus,
   ShieldAlert,
   Clock,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react';
 import { useHospitalStore } from '../../store/useHospitalStore';
 import { RegisterPatientModal } from '../common/RegisterPatientModal';
+import { SearchableCombobox } from '../common/SearchableCombobox';
+import { MedicalTooltip } from '../common/MedicalTooltip';
+import { DoctorAppointmentCard } from './DoctorAppointmentCard';
 
 type TriageFilter = 'all' | 'needs_tests' | 'in_labs' | 'reports_ready' | 'completed';
 
@@ -49,6 +53,7 @@ export const DoctorView: React.FC = () => {
 
   // New Patient Walk-in Modal State
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
+  const [showDoctorCardModal, setShowDoctorCardModal] = useState(false);
 
   // Review Report Modal State
   const [reviewReportId, setReviewReportId] = useState<string | null>(null);
@@ -222,21 +227,27 @@ export const DoctorView: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 {activeDoctor.name}
               </h1>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
                 {activeDoctor.roomNo}
               </span>
-              <select
-                value={activeDoctor.id}
-                onChange={e => setSelectedDoctor(e.target.value)}
-                className="text-xs font-bold py-1 px-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="Switch Doctor Workstation"
-              >
-                {doctors.map(d => (
-                  <option key={d.id} value={d.id}>
-                    OPD: {d.name} ({d.roomNo})
-                  </option>
-                ))}
-              </select>
+              <div className="w-56 sm:w-64">
+                <SearchableCombobox
+                  options={doctors.map(d => ({
+                    id: d.id,
+                    label: d.name,
+                    subtext: `${d.roomNo} • ${d.specialization}`,
+                    category: d.department,
+                    badge: `${d.activePatientCount} queued`,
+                    badgeColor: 'teal'
+                  }))}
+                  value={activeDoctor.id}
+                  onChange={setSelectedDoctor}
+                  placeholder="Switch Doctor Workstation..."
+                  searchPlaceholder="Search doctor or room..."
+                  size="sm"
+                  triggerClassName="py-1 px-2.5 rounded-xl border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-obsidian-800"
+                />
+              </div>
             </div>
             <p className="text-xs text-slate-500 mt-1">
               {activeDoctor.specialization} • {activeDoctor.department}
@@ -259,10 +270,20 @@ export const DoctorView: React.FC = () => {
           </div>
           <div className="h-6 w-px bg-slate-200 hidden sm:block" />
           
+          {/* Profile Card Preview Button */}
+          <button
+            type="button"
+            onClick={() => setShowDoctorCardModal(true)}
+            className="px-3 py-2 rounded-2xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+          >
+            <Award className="w-3.5 h-3.5 text-teal-600" />
+            <span>Profile Card</span>
+          </button>
+
           {/* Quick Add Walk-In Patient Button */}
           <button
             onClick={() => setIsAddPatientOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-98"
+            className="px-3.5 py-2 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-98 cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>+ New Patient</span>
@@ -298,9 +319,13 @@ export const DoctorView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/60 pb-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h2 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-              Automated OPD Flow: How Q-Care Manages Your Clinic
-            </h2>
+            <MedicalTooltip
+              term="Automated OPD Flow: How Q-Care Manages Your Clinic"
+              explanation="Closed-loop outpatient workflow: Walk-in consult, diagnostic dispatch to lowest wait-time labs, and automated return when reports ready."
+              clinicalSource="Clinical Workflow Protocol"
+              inlineDotted={false}
+              className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight"
+            />
           </div>
           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200 self-start">
             {currentHospital.tier === 'single_doctor_clinic' ? 'Single-Doctor Practice Mode' : `${currentHospital.badge}`}
@@ -1122,6 +1147,25 @@ export const DoctorView: React.FC = () => {
           setTriageFilter('needs_tests');
         }}
       />
+
+      {/* Specialist Doctor Appointment & Profile Card Modal */}
+      {showDoctorCardModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/60 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setShowDoctorCardModal(false)}
+        >
+          <div 
+            className="w-full max-w-md"
+            onClick={e => e.stopPropagation()}
+          >
+            <DoctorAppointmentCard 
+              doctor={activeDoctor}
+              onBookVisit={() => setShowDoctorCardModal(false)}
+              onStartVideoConsult={() => setShowDoctorCardModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

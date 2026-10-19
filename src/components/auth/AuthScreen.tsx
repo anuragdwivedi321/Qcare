@@ -4,19 +4,24 @@ import {
   ArrowRight, 
   AlertCircle, 
   Sparkles, 
-  Building2,
-  Zap,
-  Lock,
-  QrCode,
-  Monitor,
-  X,
-  ChevronRight,
+  Zap, 
+  Lock, 
+  QrCode, 
+  Monitor, 
+  X, 
+  ChevronRight, 
   FlaskConical
 } from 'lucide-react';
 import { useHospitalStore } from '../../store/useHospitalStore';
 import { PriorityLevel } from '../../types';
 import { WhyQCareModal } from '../common/WhyQCareModal';
 import { PrintableReceipt } from '../common/PrintableReceipt';
+import { SearchableCombobox } from '../common/SearchableCombobox';
+import { MedicalTooltip } from '../common/MedicalTooltip';
+import { SecurityPopover } from '../common/SecurityPopover';
+import { HeroDiscoveryBar } from '../common/HeroDiscoveryBar';
+import { AccreditationBar } from '../common/AccreditationBar';
+import { EmergencyHotlineBadge } from '../common/EmergencyHotlineBadge';
 
 export const AuthScreen: React.FC = () => {
   const { 
@@ -189,31 +194,35 @@ export const AuthScreen: React.FC = () => {
 
           {/* Hospital Branch Selector & Controls */}
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-2.5 py-1 shadow-2xs">
-              <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <select
+            <div className="w-[140px] sm:w-[210px]">
+              <SearchableCombobox
+                options={hospitals.map(h => ({
+                  id: h.id,
+                  label: h.shortName || h.name,
+                  subtext: `${h.city || 'Campus'} • ${h.badge}`,
+                  category: h.state || 'Metro Branches',
+                  badge: h.badge,
+                  badgeColor: 'teal'
+                }))}
                 value={currentHospitalId}
-                onChange={e => {
-                  setHospital(e.target.value);
-                  const hosp = hospitals.find(h => h.id === e.target.value);
+                onChange={newId => {
+                  setHospital(newId);
+                  const hosp = hospitals.find(h => h.id === newId);
                   if (hosp?.code) setStaffHospCode(hosp.code);
                   setErrorMessage(null);
                 }}
-                className="text-xs font-bold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
-              >
-                {hospitals.map(h => (
-                  <option key={h.id} value={h.id} className="bg-white text-slate-900">
-                    {h.shortName} ({h.badge})
-                  </option>
-                ))}
-              </select>
+                placeholder="Select Hospital Branch..."
+                searchPlaceholder="Search branch or city..."
+                size="sm"
+                triggerClassName="py-1 px-2.5 rounded-xl border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-obsidian-800"
+              />
             </div>
 
             <button
               onClick={() => setShowWhyModal(true)}
-              className="px-3 py-1.5 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+              className="px-3 py-1.5 rounded-2xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
             >
-              <Zap className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />
+              <Zap className="w-3.5 h-3.5 text-teal-600 fill-teal-600" />
               <span className="hidden sm:inline">Why QCare?</span>
             </button>
           </div>
@@ -221,11 +230,11 @@ export const AuthScreen: React.FC = () => {
       </header>
 
       {/* Main Reception Gate Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 sm:py-8 flex flex-col justify-center relative z-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-8 flex flex-col justify-center relative z-10">
         
         {/* Prominent Center Brand Hero ("min me bada sa Q-Care") */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white p-2.5 shadow-lg border border-slate-200/90 mb-3 mx-auto transition-transform hover:scale-105 duration-300">
+          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white p-2.5 shadow-clinical border border-slate-200/90 mb-3 mx-auto transition-transform hover:scale-105 duration-300">
             <img 
               src="/logo.png" 
               alt="QCare Logo" 
@@ -233,10 +242,10 @@ export const AuthScreen: React.FC = () => {
             />
           </div>
           <div className="flex items-center justify-center gap-2.5">
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900">
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-obsidian-900">
               Q-CARE
             </h1>
-            <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
+            <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
               Hospital OS
             </span>
           </div>
@@ -245,7 +254,10 @@ export const AuthScreen: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+        {/* Unified 3-Field Hero Discovery Bar */}
+        <HeroDiscoveryBar className="mb-6" />
+
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200 shadow-clinical overflow-hidden">
           
           {/* Active Hospital Context Banner */}
           <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -587,47 +599,72 @@ export const AuthScreen: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                        <select
+                        <SearchableCombobox
+                          options={[
+                            { id: 'Male', label: 'Male' },
+                            { id: 'Female', label: 'Female' },
+                            { id: 'Other', label: 'Other' },
+                          ]}
                           value={gender}
-                          onChange={e => setGender(e.target.value as any)}
-                          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                        >
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
-                        </select>
+                          onChange={val => setGender(val as any)}
+                          placeholder="Select Gender"
+                          size="sm"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">Mobile Number</label>
+                        <SecurityPopover label="256-Bit Encrypted" />
+                      </div>
                       <input
                         type="tel"
                         value={contact}
                         onChange={e => setContact(e.target.value)}
                         placeholder="e.g. 9811223344"
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none transition-all tabular-nums"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Consulting Doctor</label>
-                      <select
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          Consulting Doctor
+                        </label>
+                        <MedicalTooltip 
+                          term="OPD Triage" 
+                          explanation="Assigns the patient directly to the doctor's active OPD queue for clinical review and diagnostic orders." 
+                          clinicalSource="National Hospital Management Protocol"
+                        />
+                      </div>
+                      <SearchableCombobox
+                        options={doctors.map(d => ({
+                          id: d.id,
+                          label: d.name,
+                          subtext: `${d.roomNo} • ${d.specialization}`,
+                          category: d.department,
+                          badge: `${d.activePatientCount} queued`,
+                          badgeColor: 'teal'
+                        }))}
                         value={selectedDoctorId}
-                        onChange={e => setSelectedDoctorId(e.target.value)}
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                      >
-                        {doctors.map(d => (
-                          <option key={d.id} value={d.id}>
-                            {d.name} ({d.roomNo})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSelectedDoctorId}
+                        placeholder="Select Consulting Doctor..."
+                        searchPlaceholder="Search doctor or room..."
+                        size="md"
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Triage Priority</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">Triage Priority</label>
+                        <MedicalTooltip 
+                          term="Clinical Triage Rule"
+                          explanation="Emergency patients bypass normal queues immediately. Age 60+ is automatically flagged for Senior Citizen priority."
+                          clinicalSource="AIIMS / Emergency Medicine Protocol"
+                        />
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
                         {(['standard', 'senior', 'emergency'] as PriorityLevel[]).map(p => (
                           <button
@@ -734,6 +771,12 @@ export const AuthScreen: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Trust & Regulatory Accreditation Strip */}
+      <AccreditationBar className="relative z-10 my-4" />
+
+      {/* 24/7 Emergency & Triage Hotline Floating Badge */}
+      <EmergencyHotlineBadge />
 
       {/* Footer (Clean Hospital White) */}
       <footer className="py-4 text-center text-xs text-slate-500 border-t border-slate-200 bg-white/70 backdrop-blur-xs relative z-10">
