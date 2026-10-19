@@ -19,6 +19,11 @@ import { PrintableReceipt } from '../common/PrintableReceipt';
 import { SearchableCombobox } from '../common/SearchableCombobox';
 import { SecurityPopover } from '../common/SecurityPopover';
 import { MedicalTooltip } from '../common/MedicalTooltip';
+import { 
+  validatePatientName, 
+  validatePatientAge, 
+  validatePatientPhone 
+} from '../../engine/securitySanitizer';
 
 export const DoctorAssistantView: React.FC = () => {
   const {
@@ -112,16 +117,19 @@ export const DoctorAssistantView: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!patientName.trim()) {
-      setFormError('Patient full name is required.');
+    const nameVal = validatePatientName(patientName);
+    if (!nameVal.isValid) {
+      setFormError(nameVal.error || 'Patient full name is required.');
       return;
     }
-    if (!patientAge || Number(patientAge) <= 0 || Number(patientAge) > 125) {
-      setFormError('Valid patient age is required.');
+    const ageVal = validatePatientAge(patientAge);
+    if (!ageVal.isValid) {
+      setFormError(ageVal.error || 'Valid patient age between 0 and 130 is required.');
       return;
     }
-    if (!patientMobile.trim() || patientMobile.replace(/\D/g, '').length < 8) {
-      setFormError('Valid mobile number (at least 8-10 digits) is required.');
+    const phoneVal = validatePatientPhone(patientMobile);
+    if (!phoneVal.isValid) {
+      setFormError(phoneVal.error || 'Valid 10-digit mobile number is required.');
       return;
     }
     if (activeSelectedTestsList.length === 0) {
@@ -133,6 +141,10 @@ export const DoctorAssistantView: React.FC = () => {
   };
 
   const handleConfirmAndIssueSlip = () => {
+    const nameVal = validatePatientName(patientName);
+    const ageVal = validatePatientAge(patientAge);
+    const phoneVal = validatePatientPhone(patientMobile);
+
     const payloadTests = activeSelectedTestsList.map(t => ({
       testId: t.id,
       priority: selectedTests[t.id]?.priority || overallPriority,
@@ -142,10 +154,10 @@ export const DoctorAssistantView: React.FC = () => {
     }));
 
     const result = createPatientDiagnosticJourney({
-      name: patientName.trim(),
-      age: Number(patientAge),
+      name: nameVal.isValid ? nameVal.value : patientName.trim(),
+      age: ageVal.isValid ? ageVal.value : Number(patientAge),
       gender: patientGender,
-      contact: patientMobile.trim(),
+      contact: phoneVal.isValid ? phoneVal.value : patientMobile.trim(),
       doctorName: selectedDoctor ? selectedDoctor.name : 'Dr. Senior Consultant',
       department: department,
       doctorPriority: overallPriority,

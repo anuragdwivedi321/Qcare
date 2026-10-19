@@ -43,19 +43,21 @@ export const LabView: React.FC = () => {
   } = useHospitalStore();
 
   const activeCounter = counters.find(c => c.id === selectedCounterId) || counters[0];
-  const activeDept = departments.find(d => d.id === activeCounter.departmentId);
+  const activeDept = activeCounter ? departments.find(d => d.id === activeCounter.departmentId) : departments[0];
 
   // Department tokens
-  const deptTokens = queueTokens.filter(t => t.departmentId === activeCounter.departmentId);
+  const deptTokens = activeCounter ? queueTokens.filter(t => t.departmentId === activeCounter.departmentId) : [];
   const waitingTokens = deptTokens.filter(t => t.status === 'waiting');
 
   // Currently serving token at this specific counter (robust check via counterId or currentServingTokenId)
-  const servingToken = deptTokens.find(
-    t => (t.id === activeCounter.currentServingTokenId || t.counterId === activeCounter.id) && 
-         (t.status === 'called' || t.status === 'in_progress')
-  ) || queueTokens.find(
-    t => t.id === activeCounter.currentServingTokenId && (t.status === 'called' || t.status === 'in_progress')
-  );
+  const servingToken = activeCounter
+    ? (deptTokens.find(
+        t => (t.id === activeCounter.currentServingTokenId || t.counterId === activeCounter.id) && 
+             (t.status === 'called' || t.status === 'in_progress')
+      ) || queueTokens.find(
+        t => t.id === activeCounter.currentServingTokenId && (t.status === 'called' || t.status === 'in_progress')
+      ))
+    : undefined;
 
   const matchedPatient = servingToken 
     ? (patients.find(p => p.id === servingToken.patientId) || (allPatients && allPatients.find(p => p.id === servingToken.patientId)))
@@ -253,6 +255,22 @@ export const LabView: React.FC = () => {
       setCheckInInput('');
     }, 1200);
   };
+
+  if (!activeCounter) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center text-slate-600 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <FlaskConical className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+        <h3 className="text-lg font-black text-slate-900 mb-2">No Active Lab Counters</h3>
+        <p className="text-xs text-slate-500 mb-6">There are no diagnostic counters configured for this hospital campus.</p>
+        <button
+          onClick={signOut}
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+        >
+          Return to Portal
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-16 font-sans">

@@ -39,6 +39,13 @@ import {
 import { calculateOptimalQueueRoute } from '../engine/queueRouter';
 import { hospitalAudio } from '../engine/chimeAudio';
 import { realtimeSync } from '../engine/realtimeSync';
+import { 
+  sanitizeString, 
+  validatePatientName, 
+  validatePatientAge, 
+  validatePatientPhone, 
+  validateSymptoms 
+} from '../engine/securitySanitizer';
 
 // Global singleton state pattern for React 18 application with useSyncExternalStore
 type Listener = () => void;
@@ -136,19 +143,28 @@ if (savedDB?.patients) {
 }
 const initialPatients = Array.from(patientMap.values());
 
-// 3. Queue tokens: real demo queue tokens + cleaned user registered tokens
+// 3. Queue tokens: real demo queue tokens + cleaned user registered tokens (purge ghost / orphan tokens)
+const validPatientIds = new Set(patientMap.keys());
 const tokenMap = new Map<string, QueueToken>();
-ALL_INITIAL_QUEUE_TOKENS.forEach(t => tokenMap.set(t.id, t));
-cleanedSavedTokens.forEach(t => tokenMap.set(t.id, t));
+ALL_INITIAL_QUEUE_TOKENS.forEach(t => {
+  if (validPatientIds.has(t.patientId)) tokenMap.set(t.id, t);
+});
+cleanedSavedTokens.forEach(t => {
+  if (validPatientIds.has(t.patientId)) tokenMap.set(t.id, t);
+});
 const initialQueueTokens = Array.from(tokenMap.values());
 
-// 4. Counters: reset any counter pointing to dead dummy tokens
+// 4. Counters: reset any counter pointing to dead dummy or orphan tokens
+const validTokenIds = new Set(tokenMap.keys());
 const rawCounters = savedDB?.counters
   ? Array.from(new Map([...ALL_INITIAL_COUNTERS, ...savedDB.counters].map(c => [c.id, c])).values())
   : ALL_INITIAL_COUNTERS;
 
 const initialCounters = rawCounters.map(c => {
-  if (c.currentServingTokenId && c.currentServingTokenId.startsWith('qdemo-')) {
+  if (
+    (c.currentServingTokenId && (c.currentServingTokenId.startsWith('qdemo-') || !validTokenIds.has(c.currentServingTokenId))) ||
+    (c.currentPatientId && !validPatientIds.has(c.currentPatientId))
+  ) {
     return { ...c, currentServingTokenId: undefined, currentPatientId: undefined };
   }
   return c;
@@ -777,6 +793,16 @@ export function registerPatientAction(data: {
   autoLogin?: boolean;
   prescribedTests?: string[];
 }): Patient & { opdTokenNumber: string; queuePosition: number; estimatedWaitMinutes: number } {
+  // Input Sanitization & Security Boundary Validation (XSS protection, age 0-130, 10-digit phone)
+  const nameVal = validatePatientName(data.name);
+  const cleanName = nameVal.isValid ? nameVal.value : sanitizeString(data.name) || 'Registered Patient';
+  const ageVal = validatePatientAge(data.age);
+  const cleanAge = ageVal.isValid ? ageVal.value : Math.min(130, Math.max(0, Number(data.age) || 30));
+  const phoneVal = validatePatientPhone(data.contact);
+  const cleanContact = phoneVal.isValid ? phoneVal.value : (data.contact ? sanitizeString(data.contact) : '+91 98000 00000');
+  const illnessVal = validateSymptoms(data.currentIllness || 'Routine Consultation');
+  const cleanIllness = illnessVal.isValid ? illnessVal.value : sanitizeString(data.currentIllness) || 'Routine Consultation';
+
   const hospDocs = state.doctors.filter(d => (d.hospitalId || 'hosp-metro') === state.currentHospitalId);
   const doctor = (data.doctorId ? state.doctors.find(d => d.id === data.doctorId) : null) || hospDocs[0] || state.doctors[0];
   const hospId = (doctor && doctor.id === data.doctorId && doctor.hospitalId) ? doctor.hospitalId : (hospDocs[0]?.hospitalId || state.currentHospitalId);
@@ -784,7 +810,7 @@ export function registerPatientAction(data: {
 
   const generatedUhid = `QC-${2026}-${Math.floor(1000 + Math.random() * 9000)}`;
   const newId = `pat-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const calculatedPriority: PriorityLevel = data.priority || (Number(data.age) >= 60 ? 'senior' : 'standard');
+  const calculatedPriority: PriorityLevel = data.priority || (cleanAge >= 60 ? 'senior' : 'standard');
   const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // Generate unique sequential OPD token scoped to hospital
@@ -834,9 +860,9 @@ export function registerPatientAction(data: {
     hospitalId: hosp.id,
     tokenNumber: generatedOpdToken,
     patientId: newId,
-    patientName: data.name.trim(),
+    patientName: cleanName,
     patientUhid: generatedUhid,
-    patientAge: Number(data.age),
+    patientAge: cleanAge,
     patientGender: data.gender,
     testId: 'opd-consultation',
     testName: 'OPD Doctor Consultation',
@@ -867,9 +893,9 @@ export function registerPatientAction(data: {
         hospitalId: hosp.id,
         tokenNumber: `${test.code.split('-')[0] || 'TST'}-${Math.floor(100 + Math.random() * 899)}`,
         patientId: newId,
-        patientName: data.name.trim(),
+        patientName: cleanName,
         patientUhid: generatedUhid,
-        patientAge: Number(data.age),
+        patientAge: cleanAge,
         patientGender: data.gender,
         testId: test.id,
         testName: test.name,
@@ -888,16 +914,16 @@ export function registerPatientAction(data: {
     hospitalId: hosp.id,
     hospitalName: hosp.name,
     uhid: generatedUhid,
-    name: data.name.trim(),
-    age: Number(data.age),
+    name: cleanName,
+    age: cleanAge,
     gender: data.gender,
-    contact: data.contact.trim(),
+    contact: cleanContact,
     priority: calculatedPriority,
     prescribedDoctorId: doctor.id,
     prescribedDoctorName: doctor.name,
     prescribedDoctorRoom: doctor.roomNo,
-    currentIllness: data.currentIllness.trim(),
-    symptoms: data.currentIllness.trim(),
+    currentIllness: cleanIllness,
+    symptoms: cleanIllness,
     prescribedTests: testIds,
     completedTests: [],
     currentTestId: undefined,
@@ -1609,6 +1635,28 @@ export function updateLabAvailabilityAction(departmentId: string, status: 'avail
       return c;
     });
 
+    // Dynamic re-routing: recalculate active patients' routes diverted away from unavailable lab
+    const updatedPatients = s.patients.map(p => {
+      const patHospId = p.hospitalId || 'hosp-metro';
+      if (patHospId !== s.currentHospitalId) return p;
+      if (p.status === 'discharged' || p.status === 'all_completed') return p;
+      if (!p.prescribedTests || p.prescribedTests.length === 0) return p;
+
+      const newPlan = calculateOptimalQueueRoute(
+        p,
+        s.tests,
+        updatedDepts,
+        s.queueTokens,
+        updatedCounters
+      );
+      const nextPendingStep = newPlan.smartRouteSteps.find(st => st.status === 'up_next' || st.status === 'queued');
+      return {
+        ...p,
+        assignedSmartRoute: newPlan.smartRouteSteps.map(st => st.testId),
+        currentTestId: nextPendingStep?.testId || p.currentTestId
+      };
+    });
+
     const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       hospitalId: s.currentHospitalId,
@@ -1620,10 +1668,17 @@ export function updateLabAvailabilityAction(departmentId: string, status: 'avail
       timestamp: nowStr
     };
 
+    realtimeSync.broadcast('LAB_AVAILABILITY_CHANGED', {
+      hospitalId: s.currentHospitalId,
+      departmentId,
+      message: `${dept?.name || 'Lab'} availability updated to ${status}`
+    });
+
     return {
       ...s,
       departments: updatedDepts,
       counters: updatedCounters,
+      patients: updatedPatients,
       auditLogs: [newLog, ...s.auditLogs],
       toastNotification: `${dept?.name || 'Lab'} status updated to ${status}!`
     };
@@ -1669,6 +1724,28 @@ export function updateMachineCountsAction(departmentId: string, totalCount: numb
       return c;
     });
 
+    // Dynamic re-routing: recalculate active patients' routes diverted away from broken machine lab
+    const updatedPatients = s.patients.map(p => {
+      const patHospId = p.hospitalId || 'hosp-metro';
+      if (patHospId !== s.currentHospitalId) return p;
+      if (p.status === 'discharged' || p.status === 'all_completed') return p;
+      if (!p.prescribedTests || p.prescribedTests.length === 0) return p;
+
+      const newPlan = calculateOptimalQueueRoute(
+        p,
+        s.tests,
+        updatedDepts,
+        s.queueTokens,
+        updatedCounters
+      );
+      const nextPendingStep = newPlan.smartRouteSteps.find(st => st.status === 'up_next' || st.status === 'queued');
+      return {
+        ...p,
+        assignedSmartRoute: newPlan.smartRouteSteps.map(st => st.testId),
+        currentTestId: nextPendingStep?.testId || p.currentTestId
+      };
+    });
+
     const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       hospitalId: s.currentHospitalId,
@@ -1680,11 +1757,18 @@ export function updateMachineCountsAction(departmentId: string, totalCount: numb
       timestamp: nowStr
     };
 
+    realtimeSync.broadcast('MACHINE_COUNT_CHANGED', {
+      hospitalId: s.currentHospitalId,
+      departmentId,
+      message: `${dept?.name || 'Lab'} machines updated: ${activeCount}/${totalCount} active`
+    });
+
     return {
       ...s,
       labMachines: updatedMachines,
       departments: updatedDepts,
       counters: updatedCounters,
+      patients: updatedPatients,
       auditLogs: [newLog, ...s.auditLogs],
       toastNotification: `${dept?.name} machines updated: ${activeCount}/${totalCount} active`
     };
@@ -1830,6 +1914,16 @@ export function createPatientDiagnosticJourneyAction(data: {
     dependencyTestId?: string;
   }[];
 }): { patient: Patient; qrToken: string } {
+  // Input sanitization and boundary checks
+  const nameVal = validatePatientName(data.name);
+  const cleanName = nameVal.isValid ? nameVal.value : sanitizeString(data.name) || 'Registered Patient';
+  const ageVal = validatePatientAge(data.age);
+  const cleanAge = ageVal.isValid ? ageVal.value : Math.min(130, Math.max(0, Number(data.age) || 30));
+  const phoneVal = validatePatientPhone(data.contact);
+  const cleanContact = phoneVal.isValid ? phoneVal.value : (data.contact ? sanitizeString(data.contact) : '+91 98000 00000');
+  const cleanDoctorName = sanitizeString(data.doctorName) || 'Consulting Physician';
+  const cleanDept = sanitizeString(data.department) || 'General Medicine';
+
   const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const patId = `pat-${Date.now()}`;
   const hospId = state.currentHospitalId;
@@ -1837,8 +1931,12 @@ export function createPatientDiagnosticJourneyAction(data: {
 
   const generatedUhid = data.uhid?.trim() || `QC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
   const qrToken = `token-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`;
+  const opdTokenNum = `OPD-${Math.floor(200 + Math.random() * 800)}`;
+  const opdTokenId = `tok-opd-${Date.now()}`;
 
-  const activeTokenIds: Record<string, string> = {};
+  const activeTokenIds: Record<string, string> = {
+    'opd-consultation': opdTokenId
+  };
   const newTokens: QueueToken[] = [];
   const testIds = data.tests.map(t => t.testId);
 
@@ -1856,7 +1954,12 @@ export function createPatientDiagnosticJourneyAction(data: {
       hospitalId: hospId,
       tokenNumber: `${test?.code.split('-')[0] || 'TST'}-${200 + deptTokens.length + 1}`,
       patientId: patId,
+      patientName: cleanName,
+      patientUhid: generatedUhid,
+      patientAge: cleanAge,
+      patientGender: data.gender,
       testId: tItem.testId,
+      testName: test?.name,
       departmentId: test?.departmentId || '',
       priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
       doctorPriority: tItem.priority,
@@ -1867,21 +1970,45 @@ export function createPatientDiagnosticJourneyAction(data: {
     });
   });
 
+  // Doctor consultation token in awaiting_lab_reports state
+  const opdToken: QueueToken = {
+    id: opdTokenId,
+    hospitalId: hospId,
+    tokenNumber: opdTokenNum,
+    patientId: patId,
+    patientName: cleanName,
+    patientUhid: generatedUhid,
+    patientAge: cleanAge,
+    patientGender: data.gender,
+    testId: 'opd-consultation',
+    testName: 'OPD Doctor Consultation',
+    departmentId: 'dept-opd',
+    doctorId: 'doc-01',
+    doctorName: cleanDoctorName,
+    priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
+    doctorPriority: data.doctorPriority,
+    status: 'awaiting_lab_reports',
+    issuedAt: nowStr,
+    queuePosition: 1,
+    estimatedWaitMinutes: 20
+  };
+  newTokens.push(opdToken);
+
   const newPatient: Patient = {
     id: patId,
     hospitalId: hospId,
     hospitalName: hosp.name,
     uhid: generatedUhid,
-    name: data.name.trim(),
-    age: data.age,
+    name: cleanName,
+    age: cleanAge,
     gender: data.gender,
-    contact: data.contact.trim(),
+    contact: cleanContact,
     priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
     doctorPriority: data.doctorPriority,
     prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: data.doctorName,
+    prescribedDoctorName: cleanDoctorName,
     prescribedDoctorRoom: 'OPD Room 204',
-    department: data.department,
+    department: cleanDept,
     prescribedTests: testIds,
     completedTests: [],
     activeTokenIds,
@@ -1889,7 +2016,7 @@ export function createPatientDiagnosticJourneyAction(data: {
     assignedSmartRoute: testIds,
     assignedNaiveRoute: testIds,
     registrationTime: nowStr,
-    opdTokenNumber: `OPD-${Math.floor(200 + Math.random() * 800)}`,
+    opdTokenNumber: opdTokenNum,
     doctorReviewStatus: 'awaiting_lab_reports',
     secureQrToken: qrToken
   };
@@ -2516,8 +2643,10 @@ export function useHospitalStore() {
   }, [snap.patients, snap.currentHospitalId]);
 
   const scopedDoctors = useMemo(() => {
-    const list = snap.doctors.filter(d => (d.hospitalId || 'qcare-demo') === snap.currentHospitalId);
-    return list.length > 0 ? list : snap.doctors.slice(0, 4);
+    return snap.doctors.filter(d => {
+      const docHosp = d.hospitalId || (d.id.startsWith('doc-metro') ? 'hosp-metro' : d.id.includes('clinic') ? 'hosp-clinic' : d.id.includes('east') ? 'hosp-east' : 'qcare-demo');
+      return docHosp === snap.currentHospitalId;
+    });
   }, [snap.doctors, snap.currentHospitalId]);
 
   const scopedCounters = useMemo(() => {

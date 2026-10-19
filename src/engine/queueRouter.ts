@@ -68,16 +68,22 @@ export function calculateDepartmentCurrentWait(
   const deptCounters = counters.filter(c => c.departmentId === deptId);
   const activeCounters = deptCounters.filter(c => c.status === 'active');
   
-  // Only consider closed if department explicitly marked unavailable, OR counters exist and all are closed, OR activeMachines === 0
+  // Closed if department explicitly marked unavailable, activeMachines <= 0, or counters exist and all are closed
   const isClosed = isDeptMarkedUnavailable || 
-    (deptCounters.length > 0 && activeCounters.length === 0) || 
-    (dept?.activeMachines !== undefined && dept.activeMachines === 0);
+    (dept?.activeMachines !== undefined && dept.activeMachines <= 0) ||
+    (deptCounters.length > 0 && activeCounters.length === 0);
 
-  const activeCountersCount = isClosed ? 0 : Math.max(1, activeCounters.length);
+  // Active serving units (Machines / Counters):
+  // When activeMachines is specified and > 0, use it to accurately reflect physical machine capacity
+  const activeCountersCount = isClosed 
+    ? 0 
+    : (dept?.activeMachines !== undefined && dept.activeMachines > 0
+        ? (activeCounters.length > 0 ? Math.max(activeCounters.length, dept.activeMachines) : dept.activeMachines)
+        : Math.max(1, activeCounters.length));
 
   // Compute average service minutes across active counters or realistic standard duration
   const avgService = activeCounters.length > 0
-    ? activeCounters.reduce((acc, c) => acc + c.averageServiceMinutes, 0) / activeCounters.length
+    ? activeCounters.reduce((acc, c) => acc + (c.averageServiceMinutes || 6.0), 0) / activeCounters.length
     : 6.0;
 
   // Count active waiting tokens (excluding patient's own token so they aren't counted ahead of themselves)
@@ -89,11 +95,15 @@ export function calculateDepartmentCurrentWait(
   const waitingCount = waitingTokens.length;
 
   // Effective wait time calculation:
+  // Edge cases handled:
+  // 1. isClosed (active machines = 0) -> penalty wait
+  // 2. waitingCount === 0 -> 0 min wait (immediate)
+  // 3. active machines > 0 -> (Patients Ahead * Average Duration) / Active Machines
   const waitMinutes = isClosed
     ? (waitingCount > 0 ? waitingCount * 20 + 90 : 90)
     : (waitingCount === 0 
         ? 0 
-        : Math.max(3, Math.round((waitingCount * avgService) / activeCountersCount)));
+        : Math.max(1, Math.round((waitingCount * avgService) / Math.max(1, activeCountersCount))));
 
   return {
     waitMinutes,
@@ -120,10 +130,12 @@ function estimateProjectedWait(
   if (current.isClosed) {
     return current.waitMinutes;
   }
-  // During elapsedMinutes, active counters would have served approx:
-  const patientsServedDuringTransit = Math.floor((elapsedMinutes / current.avgService) * current.activeCountersCount);
+  const effectiveSpeed = Math.max(1, current.avgService || 6.0);
+  const effectiveUnits = Math.max(1, current.activeCountersCount);
+  // During elapsedMinutes, active machines/counters would have served approx:
+  const patientsServedDuringTransit = Math.floor((elapsedMinutes / effectiveSpeed) * effectiveUnits);
   const projectedWaiting = Math.max(0, current.waitingCount - patientsServedDuringTransit) + projectedLoadCount;
-  return Math.round((projectedWaiting * current.avgService) / Math.max(1, current.activeCountersCount));
+  return Math.round((projectedWaiting * effectiveSpeed) / effectiveUnits);
 }
 
 /**
@@ -138,10 +150,15 @@ function generateValidSequences(
   if (tests.length === 0) return [[]];
   if (tests.length === 1) return [tests];
 
+  const testIdSet = new Set(tests.map(t => t.id));
   const isPrereqSatisfied = (test: DiagnosticTest, current: DiagnosticTest[]) => {
     if (!test.prerequisites || test.prerequisites.length === 0) return true;
     return test.prerequisites.every(
-      prereqId => completedTestIds.includes(prereqId) || current.some(t => t.id === prereqId)
+      prereqId => 
+        prereqId === test.id || // self-dependency guard
+        !testIdSet.has(prereqId) || // external/missing prerequisite guard
+        completedTestIds.includes(prereqId) || 
+        current.some(t => t.id === prereqId)
     );
   };
 
@@ -260,7 +277,7 @@ function evaluateSequence(
       }
     }
 
-    const testDuration = test.averageDurationMinutes;
+    const testDuration = (test.averageDurationMinutes && test.averageDurationMinutes > 0) ? test.averageDurationMinutes : 6;
     const startOffset = currentTimeOffset + projectedWait;
     const endOffset = startOffset + testDuration;
 
@@ -333,7 +350,9 @@ function evaluateSequence(
     if (test.requiresFasting && idx > 1) {
       penaltyScore += 1 * idx; // Gentle tie-breaker preference for fasting
     }
-    const isDeptUnavailable = dept?.availabilityStatus === 'unavailable' || (dept?.activeMachines !== undefined && dept.activeMachines === 0);
+    const isDeptUnavailable = dept?.availabilityStatus === 'unavailable' || 
+      (dept?.activeMachines !== undefined && dept.activeMachines <= 0) ||
+      (counters.some(c => c.departmentId === test.departmentId) && activeDeptCounters.length === 0);
     if (isDeptUnavailable) {
       // Heavily penalize unavailable lab so it is never scheduled first when available alternatives exist!
       penaltyScore += 10000 * (sequence.length - idx);

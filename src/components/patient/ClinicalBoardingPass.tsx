@@ -93,9 +93,14 @@ export const ClinicalBoardingPass: React.FC<ClinicalBoardingPassProps> = ({
     : [];
   const calculatedPatientsAhead = queueTokens ? targetDeptTokens.length : waitingAheadCount;
   const avgDurationMinutes = effectiveTest?.averageDurationMinutes || effectiveStep?.estimatedDurationMinutes || 10;
-  const activeMachines = Math.max(1, effectiveDept?.activeMachines ?? (counters?.filter(c => c.departmentId === effectiveDept?.id && c.status === 'active').length || 1));
-  const calculatedWaitMinutes = Math.max(2, Math.round((calculatedPatientsAhead * avgDurationMinutes) / activeMachines));
-  const effectiveWaitRange = formatWaitRange(calculatedWaitMinutes);
+  const isDeptClosed = effectiveDept?.availabilityStatus === 'unavailable' || (effectiveDept?.activeMachines !== undefined && effectiveDept.activeMachines <= 0);
+  const activeMachines = isDeptClosed
+    ? 0
+    : Math.max(1, effectiveDept?.activeMachines ?? (counters?.filter(c => c.departmentId === effectiveDept?.id && c.status === 'active').length || 1));
+  const calculatedWaitMinutes = isDeptClosed
+    ? 90
+    : (calculatedPatientsAhead === 0 ? 0 : Math.max(1, Math.round((calculatedPatientsAhead * avgDurationMinutes) / Math.max(1, activeMachines))));
+  const effectiveWaitRange = isDeptClosed ? 'Lab Unavailable / Extended Delay' : formatWaitRange(calculatedWaitMinutes);
 
   // Check for unavailable labs in prescribed tests
   const unavailablePrescriptions = patient.prescribedTests

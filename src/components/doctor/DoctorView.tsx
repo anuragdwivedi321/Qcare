@@ -63,7 +63,7 @@ export const DoctorView: React.FC = () => {
   const [triageFilter, setTriageFilter] = useState<TriageFilter>('all');
 
   // Filter patients associated with this doctor or OPD
-  const myPatients = patients.filter(p => p.prescribedDoctorId === activeDoctor.id);
+  const myPatients = activeDoctor ? patients.filter(p => p.prescribedDoctorId === activeDoctor.id) : patients;
   const scopedPatients = rosterFilter === 'my' ? myPatients : patients;
 
   // Live counts for the 5 triage tabs:

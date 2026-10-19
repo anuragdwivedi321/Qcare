@@ -15,6 +15,12 @@ import { PriorityLevel, PatientTriageInfo } from '../../types';
 import { SearchableCombobox } from './SearchableCombobox';
 import { MedicalTooltip } from './MedicalTooltip';
 import { SecurityPopover } from './SecurityPopover';
+import { 
+  validatePatientName, 
+  validatePatientAge, 
+  validatePatientPhone, 
+  validateSymptoms 
+} from '../../engine/securitySanitizer';
 
 interface RegisterPatientModalProps {
   isOpen: boolean;
@@ -74,20 +80,24 @@ export const RegisterPatientModal: React.FC<RegisterPatientModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setErrorMessage('Please enter the patient full name.');
+    const nameVal = validatePatientName(name);
+    if (!nameVal.isValid) {
+      setErrorMessage(nameVal.error || 'Please enter the patient full name.');
       return;
     }
-    if (!age || Number(age) <= 0 || Number(age) > 120) {
-      setErrorMessage('Please enter a valid age between 1 and 120.');
+    const ageVal = validatePatientAge(age);
+    if (!ageVal.isValid) {
+      setErrorMessage(ageVal.error || 'Please enter a valid age between 0 and 130.');
       return;
     }
-    if (!contact.trim()) {
-      setErrorMessage('Please enter a mobile phone number.');
+    const phoneVal = validatePatientPhone(contact);
+    if (!phoneVal.isValid) {
+      setErrorMessage(phoneVal.error || 'Please enter a valid 10-digit mobile phone number.');
       return;
     }
-    if (!currentIllness.trim()) {
-      setErrorMessage('Please describe the chief sickness or symptoms.');
+    const symptomsVal = validateSymptoms(currentIllness);
+    if (!symptomsVal.isValid) {
+      setErrorMessage(symptomsVal.error || 'Please describe the chief sickness or symptoms.');
       return;
     }
 
@@ -95,11 +105,11 @@ export const RegisterPatientModal: React.FC<RegisterPatientModalProps> = ({
 
     const doc = doctors.find(d => d.id === selectedDoctorId) || doctors[0];
     const registered = registerPatient({
-      name: name.trim(),
-      age: Number(age),
+      name: nameVal.value,
+      age: ageVal.value,
       gender,
-      contact: contact.trim(),
-      currentIllness: currentIllness.trim(),
+      contact: phoneVal.value,
+      currentIllness: symptomsVal.value,
       doctorId: selectedDoctorId,
       priority,
       prescribedTests: selectedTestIds
