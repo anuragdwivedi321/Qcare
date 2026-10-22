@@ -1,6 +1,6 @@
 /**
  * Q-Bie AI Engine - Powered by Groq Cloud API
- * Real-time patient hospital companion with dynamic patient context.
+ * Real-time patient hospital companion with dynamic patient context & multi-key rotation.
  */
 
 export interface QBiePatientContext {
@@ -46,18 +46,92 @@ export interface QBiePatientContext {
   language?: 'en' | 'hi';
 }
 
-const GROQ_API_KEY = 
+// Groq API keys loaded safely from environment variables (comma-separated or single)
+const envRawKeys = (
   (typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_GROQ_API_KEY) ||
-  '';
+  ''
+).trim();
 
-// Priority model list based on verified live availability
+export const GROQ_API_KEYS: string[] = envRawKeys
+  ? envRawKeys.split(',').map(k => k.trim()).filter(Boolean)
+  : [];
+
+// Active key index for round-robin rotation
+let activeKeyIndex = 0;
+
+export function getActiveGroqKey(): string {
+  return GROQ_API_KEYS[activeKeyIndex % GROQ_API_KEYS.length];
+}
+
+export function rotateGroqKey(): string {
+  activeKeyIndex = (activeKeyIndex + 1) % GROQ_API_KEYS.length;
+  return getActiveGroqKey();
+}
+
+// Priority model list verified live on Groq
 const MODEL_CASCADE = [
   'qwen/qwen3.8-27b',
-  'openai/gpt-oss-20b',
   'openai/gpt-oss-120b',
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant'
+  'openai/gpt-oss-20b'
 ];
+
+/**
+ * Universal Groq Caller with Key Rotation & Model Cascade
+ */
+async function callGroqWithRotation(
+  systemPrompt: string,
+  userQuestion: string
+): Promise<string | null> {
+  const totalKeys = GROQ_API_KEYS.length;
+
+  for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
+    const currentKey = getActiveGroqKey();
+
+    for (const model of MODEL_CASCADE) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userQuestion }
+            ],
+            max_tokens: 250,
+            temperature: 0.6
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            return content;
+          }
+        } else if (response.status === 429 || response.status === 401 || response.status >= 500) {
+          // Key rate-limited, unauthorized, or server error -> rotate immediately
+          rotateGroqKey();
+          break;
+        }
+      } catch {
+        // Network timeout / connection error / aborted -> try next model or key
+        continue;
+      }
+    }
+  }
+
+  return null;
+}
 
 /**
  * Build rich, live clinical context prompt for Groq
@@ -104,55 +178,186 @@ ${reportsList}
 }
 
 /**
- * Call Groq API with automatic model fallback
+ * Call Groq API with automatic model cascade and key rotation
  */
 export async function askQBieAI(
   userQuestion: string,
   patientContext: QBiePatientContext
 ): Promise<string> {
   const systemPrompt = buildSystemPrompt(patientContext);
+  const result = await callGroqWithRotation(systemPrompt, userQuestion);
+  if (result) return result;
 
-  for (const model of MODEL_CASCADE) {
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userQuestion }
-          ],
-          max_tokens: 350,
-          temperature: 0.6
-        })
-      });
+  // Fallback to local clinical engine if all keys/models fail
+  return getLocalClinicalFallback(userQuestion, patientContext);
+}
 
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (content) {
-          return content;
-        }
-      }
-    } catch {
-      // Try next model in cascade
-      continue;
-    }
+/**
+ * Public Hospital & Queue Assistant for Landing / Login page
+ */
+export async function askQBiePublicAI(
+  userQuestion: string,
+  lang: 'en' | 'hi' = 'en'
+): Promise<string> {
+  const systemPrompt = `You are Qbie (क्यूबी), the official intelligent hospital and diagnostic queue guide mascot for QCare.
+You are helping patients, visitors, and hospital staff on the QCare portal.
+
+=== HOSPITAL & QCARE SYSTEM KNOWLEDGE ===
+- QCare is an intelligent outpatient queue and diagnostic flow orchestration system.
+- OPD Hours: Mon–Sat, 08:30 AM – 02:00 PM. Emergency and critical diagnostics operate 24x7.
+- Fasting Blood Tests (Sugar Fasting, Lipid Profile): Requires 8 to 10 hours overnight fasting. Plain water is permitted.
+- Pelvic / Lower Abdomen Ultrasound: Requires a full urinary bladder (drink 4-5 glasses of water 30-45 minutes before test).
+- Complete Blood Count (CBC) & Routine Urine: No fasting required. Results usually ready within 45 minutes.
+- How to get a Token: Walk into the OPD desk. The doctor or assistant selects your tests and gives you a printed thermal receipt containing your official QR code and token number.
+- How to track turn on phone: No app download needed. Open your smartphone camera and scan the QR code on your printed receipt. It opens your real-time diagnostic boarding pass showing your assigned room, patients ahead, and estimated wait time.
+- Dynamic Queue Routing: QCare continuously routes patients to whichever diagnostic bay (blood, x-ray, ultrasound, ECG) has the shortest wait, saving 30-45 minutes per visit.
+- Emergency Helpline: Dial 108 or report immediately to the Ground Floor Emergency Bay.
+
+=== CONVERSATIONAL PROTOCOL & TONE ===
+- Speak in natural, warm, reassuring Hinglish (or English if the user writes in English, or Hindi if in Hindi).
+- For simple greetings ("hello", "hi", "namaste", "hey"): Greet them warmly and ask how you can help them navigate the hospital, OPD consultation, or diagnostic tests. Example: "Hello! Main Qbie hoon, QCare hospital guide. Aaj OPD timings, test guidelines ya queue ke baare mein kya janna chahte hain?"
+- For wellbeing questions ("kaise ho", "how are you", "kya haal"): Say you are doing great and ask how you can assist their hospital visit. Example: "Main bilkul badhiya hoon, shukriya! Aap bataiye, OPD ya diagnostic test ke baare mein kya jankari chahiye?"
+- Keep all answers concise: 1 to 3 sentences maximum.
+- Be clinically accurate. Never prescribe medicines or give medical dosages. Guide them to consult the OPD doctor for clinical prescription inquiries.`;
+
+  const result = await callGroqWithRotation(systemPrompt, userQuestion);
+  if (result) return result;
+
+  return getPublicClinicalFallback(userQuestion, lang);
+}
+
+/**
+ * Fallback for public hospital guidance
+ */
+export function getPublicClinicalFallback(question: string, lang: 'en' | 'hi'): string {
+  const q = question.toLowerCase().trim();
+
+  // 1. Well-being inquiries (MUST be checked before general greetings)
+  if (
+    q.includes('kaise ho') ||
+    q.includes('kese ho') ||
+    q.includes('how are you') ||
+    q.includes('kya hal') ||
+    q.includes('kya haal') ||
+    q.includes('sab theek')
+  ) {
+    return lang === 'hi'
+      ? 'मैं बिल्कुल ठीक हूँ, पूछने के लिए धन्यवाद! आप बताएं, अस्पताल की जांच, टोकन या ओपीडी के बारे में क्या जानकारी चाहिए?'
+      : 'Main bilkul badhiya hoon, shukriya! Aap bataiye, hospital consultation, diagnostic test ya queue token ke baare mein kya madad chahiye?';
   }
 
-  // Fallback to local clinical engine if network or rate limit fails
-  return getLocalClinicalFallback(userQuestion, patientContext);
+  // 2. Pure greetings
+  if (
+    q === 'hello' ||
+    q === 'hi' ||
+    q === 'hey' ||
+    q === 'namaste' ||
+    q === 'pranam' ||
+    q === 'good morning' ||
+    q === 'good afternoon' ||
+    q === 'good evening' ||
+    q.startsWith('hello') ||
+    q.startsWith('hi ') ||
+    q.startsWith('hey ')
+  ) {
+    return lang === 'hi'
+      ? 'नमस्ते! मैं Qbie हूँ, QCare अस्पताल एवं कतार गाइड। आज मैं आपकी क्या सहायता कर सकता हूँ?'
+      : 'Hello! Main Qbie hoon, QCare hospital guide. Aaj main aapki kya madad kar sakta hoon? OPD timings, blood test guidelines ya live pass ke baare mein pooch sakte hain.';
+  }
+
+  // 3. Fasting inquiries
+  if (
+    q.includes('fasting') ||
+    q.includes('sugar') ||
+    q.includes('lipid') ||
+    q.includes('khana') ||
+    q.includes('bhookhe') ||
+    q.includes('उपवास') ||
+    q.includes('खाली पेट')
+  ) {
+    return lang === 'hi'
+      ? 'फास्टिंग ब्लड शुगर और लिपिड प्रोफाइल के लिए 8 से 10 घंटे का उपवास (खाली पेट) आवश्यक है। आप सादा पानी पी सकते हैं।'
+      : 'Fasting Blood Sugar aur Lipid Profile ke liye 8 se 10 ghante overnight fasting zaroori hai. Saada paani peene ki anumati hai.';
+  }
+
+  // 4. Ultrasound inquiries
+  if (
+    q.includes('ultrasound') ||
+    q.includes('usg') ||
+    q.includes('water') ||
+    q.includes('pani') ||
+    q.includes('पानी') ||
+    q.includes('अल्ट्रासाउंड')
+  ) {
+    return lang === 'hi'
+      ? 'पेल्विक या एब्डोमेन अल्ट्रासाउंड के लिए ब्लैडर भरा होना जरूरी है। जांच से 30-45 मिनट पहले 4-5 गिलास पानी पिएं।'
+      : 'Pelvic ya abdomen ultrasound ke liye urinary bladder bhara hona zaroori hai. Scan se 30-45 minute pehle 4-5 glass paani zaroor piyein.';
+  }
+
+  // 5. Token / Receipt inquiries
+  if (
+    q.includes('token') ||
+    q.includes('receipt') ||
+    q.includes('parchi') ||
+    q.includes('pass') ||
+    q.includes('टोकन') ||
+    q.includes('पर्ची')
+  ) {
+    return lang === 'hi'
+      ? 'ओपीडी कंसल्टेशन के बाद डॉक्टर या सहायक आपकी पर्ची प्रिंट करते हैं, जिसमें आपका टोकन नंबर और लाइव क्यूआर कोड होता है।'
+      : 'OPD desk par doctor ya assistant tests prescribe karne ke baad thermal receipt print karte hain, jisme aapka token aur live QR pass hota hai.';
+  }
+
+  // 6. QR Scan inquiries
+  if (
+    q.includes('scan') ||
+    q.includes('phone') ||
+    q.includes('mobile') ||
+    q.includes('camera') ||
+    q.includes('फोन') ||
+    q.includes('स्कैन')
+  ) {
+    return lang === 'hi'
+      ? 'किसी ऐप की जरूरत नहीं है! अपने फोन के कैमरे से पर्ची का क्यूआर कोड स्कैन करें, आपका लाइव बोर्डिंग पास तुरंत खुल जाएगा।'
+      : 'Kisi app download ki zaroorat nahi hai! Apne phone camera se receipt ka QR code scan karein, live boarding pass turant open ho jayega.';
+  }
+
+  // 7. OPD Timings
+  if (
+    q.includes('time') ||
+    q.includes('timing') ||
+    q.includes('hours') ||
+    q.includes('samay') ||
+    q.includes('समय') ||
+    q.includes('कब')
+  ) {
+    return lang === 'hi'
+      ? 'सामान्य ओपीडी परामर्श सुबह 08:30 से दोपहर 02:00 बजे तक है। आपातकालीन सेवाएं एवं डायग्नोस्टिक 24x7 उपलब्ध हैं।'
+      : 'General OPD timings subah 08:30 AM se dopahar 02:00 PM tak hain. Emergency aur critical diagnostics 24x7 chalti hain.';
+  }
+
+  // 8. Emergency / 108
+  if (
+    q.includes('emergency') ||
+    q.includes('108') ||
+    q.includes('आपातकालीन') ||
+    q.includes('urgent')
+  ) {
+    return lang === 'hi'
+      ? 'आपातकालीन स्थिति में तुरंत 108 पर कॉल करें या ग्राउंड फ्लोर पर इमरजेंसी वार्ड में संपर्क करें।'
+      : 'Emergency sthiti mein turant 108 dial karein ya Ground Floor Emergency desk par report karein.';
+  }
+
+  return lang === 'hi'
+    ? 'नमस्ते! मैं Qbie हूँ, QCare अस्पताल गाइड। आप ओपीडी समय, खाली पेट जांच, टोकन या टेस्ट के बारे में कोई भी सवाल पूछ सकते हैं!'
+    : 'Main Qbie hoon, QCare hospital guide. Aap OPD timings, fasting rules, sample collection ya live QR pass ke baare mein koi bhi sawal pooch sakte hain!';
 }
 
 /**
  * Deterministic local fallback in case of offline/network issues
  */
 function getLocalClinicalFallback(question: string, ctx: QBiePatientContext): string {
-  const q = question.toLowerCase();
+  const q = question.toLowerCase().trim();
 
   if (ctx.calledToken) {
     return `🚨 टोकन #${ctx.calledToken.tokenNumber} बुलाया जा चुका है! कृपया तुरंत अपने निर्धारित कमरे में अंदर जाएँ, स्टाफ आपका इंतजार कर रहा है।`;
@@ -160,6 +365,29 @@ function getLocalClinicalFallback(question: string, ctx: QBiePatientContext): st
 
   if (ctx.allCompleted) {
     return `🎉 आपकी सभी जांचें पूरी हो चुकी हैं! कृपया अंतिम रिपोर्ट समीक्षा व परामर्श के लिए डॉ. ${ctx.doctorName} (${ctx.doctorRoom || 'OPD Room 204'}) के पास जाएँ।`;
+  }
+
+  // 1. Well-being inquiries
+  if (
+    q.includes('kaise ho') ||
+    q.includes('kese ho') ||
+    q.includes('how are you') ||
+    q.includes('kya hal') ||
+    q.includes('kya haal')
+  ) {
+    return `नमस्ते ${ctx.patientName.split(' ')[0]} जी! मैं बिल्कुल ठीक हूँ। आपकी आज की जांचों में मदद के लिए तैयार हूँ।`;
+  }
+
+  // 2. Pure greetings
+  if (
+    q === 'hello' ||
+    q === 'hi' ||
+    q === 'hey' ||
+    q === 'namaste' ||
+    q.startsWith('hello') ||
+    q.startsWith('hi ')
+  ) {
+    return `नमस्ते ${ctx.patientName.split(' ')[0]} जी! मैं Qbie हूँ। आज आपकी जांच या कतार से जुड़ा क्या सवाल है?`;
   }
 
   if (q.includes('where') || q.includes('kahan') || q.includes('kidhar') || q.includes('jaana') || q.includes('next')) {

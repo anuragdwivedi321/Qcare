@@ -1,19 +1,19 @@
-import { 
-  Department, 
-  DiagnosticTest, 
-  Counter, 
-  QueueToken, 
-  Patient, 
-  QueueRoutingPlan, 
+import {
+  Department,
+  DiagnosticTest,
+  Counter,
+  QueueToken,
+  Patient,
+  QueueRoutingPlan,
   RouteStep,
-  DoctorPriority 
+  DoctorPriority
 } from '../types';
 
 /**
- * Calculates walking / transit time in minutes between two hospital locations.
+ * Calculates transit / walking duration in minutes between two hospital departments.
  */
 export function calculateTransitMinutes(
-  deptA?: Department, 
+  deptA?: Department,
   deptB?: Department
 ): number {
   if (!deptA || !deptB) return 2.0;
@@ -21,22 +21,22 @@ export function calculateTransitMinutes(
 
   let transit = 1.0;
 
-  // Floor difference
+  // Floor difference (stairs / elevator)
   if (deptA.location.floor !== deptB.location.floor) {
-    transit += 2.0; // lift / stairs traversal
+    transit += 2.0;
   }
 
-  // Wing difference
+  // Wing difference (corridor traverse)
   if (deptA.location.wing !== deptB.location.wing) {
-    transit += 2.0; // corridor transit
+    transit += 2.0;
   }
 
   return Math.min(transit, 6.0);
 }
 
 /**
- * Formats estimated waiting time as a realistic range.
- * Example: 25 -> "Approx. 20–30 min"
+ * Formats wait time in minutes into a realistic natural range.
+ * E.g., 0-2 -> "Immediate (< 3 min)", 15 -> "Approx. 13–19 min"
  */
 export function formatWaitRange(minutes: number): string {
   if (minutes <= 2) return 'Immediate (< 3 min)';
@@ -46,8 +46,8 @@ export function formatWaitRange(minutes: number): string {
 }
 
 /**
- * Calculates dynamic estimated wait time at a department given the current queue tokens.
- * Accounts for active counters, active machines, and average service speed.
+ * Calculates current department waiting time accounting for active counters and machines.
+ * Formula: (Patients Ahead * Average Service Duration) / Max(1, Active Serving Units)
  */
 export function calculateDepartmentCurrentWait(
   deptId: string,
@@ -55,10 +55,10 @@ export function calculateDepartmentCurrentWait(
   counters: Counter[],
   patientId?: string,
   departments?: Department[]
-): { 
-  waitMinutes: number; 
-  waitingCount: number; 
-  activeCountersCount: number; 
+): {
+  waitMinutes: number;
+  waitingCount: number;
+  activeCountersCount: number;
   avgService: number;
   isClosed: boolean;
 } {
@@ -67,42 +67,34 @@ export function calculateDepartmentCurrentWait(
 
   const deptCounters = counters.filter(c => c.departmentId === deptId);
   const activeCounters = deptCounters.filter(c => c.status === 'active');
-  
-  // Closed if department explicitly marked unavailable, activeMachines <= 0, or counters exist and all are closed
-  const isClosed = isDeptMarkedUnavailable || 
+
+  const isClosed = isDeptMarkedUnavailable ||
     (dept?.activeMachines !== undefined && dept.activeMachines <= 0) ||
     (deptCounters.length > 0 && activeCounters.length === 0);
 
-  // Active serving units (Machines / Counters):
-  // When activeMachines is specified and > 0, use it to accurately reflect physical machine capacity
-  const activeCountersCount = isClosed 
-    ? 0 
+  // Determine effective parallel serving capacity
+  const activeCountersCount = isClosed
+    ? 0
     : (dept?.activeMachines !== undefined && dept.activeMachines > 0
         ? (activeCounters.length > 0 ? Math.max(activeCounters.length, dept.activeMachines) : dept.activeMachines)
         : Math.max(1, activeCounters.length));
 
-  // Compute average service minutes across active counters or realistic standard duration
   const avgService = activeCounters.length > 0
     ? activeCounters.reduce((acc, c) => acc + (c.averageServiceMinutes || 6.0), 0) / activeCounters.length
     : 6.0;
 
-  // Count active waiting tokens (excluding patient's own token so they aren't counted ahead of themselves)
+  // Count active tokens currently waiting in queue (excluding patient's own token)
   const waitingTokens = tokens.filter(
-    t => t.departmentId === deptId && 
+    t => t.departmentId === deptId &&
          (t.status === 'waiting' || t.status === 'in_progress') &&
          (!patientId || t.patientId !== patientId)
   );
   const waitingCount = waitingTokens.length;
 
-  // Effective wait time calculation:
-  // Edge cases handled:
-  // 1. isClosed (active machines = 0) -> penalty wait
-  // 2. waitingCount === 0 -> 0 min wait (immediate)
-  // 3. active machines > 0 -> (Patients Ahead * Average Duration) / Active Machines
   const waitMinutes = isClosed
     ? (waitingCount > 0 ? waitingCount * 20 + 90 : 90)
-    : (waitingCount === 0 
-        ? 0 
+    : (waitingCount === 0
+        ? 0
         : Math.max(1, Math.round((waitingCount * avgService) / Math.max(1, activeCountersCount))));
 
   return {
@@ -115,7 +107,7 @@ export function calculateDepartmentCurrentWait(
 }
 
 /**
- * Simulates wait time at a counter when patient arrives at elapsed offset T minutes into the future.
+ * Simulates wait time at a department after elapsed minutes of prior tests.
  */
 function estimateProjectedWait(
   deptId: string,
@@ -132,16 +124,15 @@ function estimateProjectedWait(
   }
   const effectiveSpeed = Math.max(1, current.avgService || 6.0);
   const effectiveUnits = Math.max(1, current.activeCountersCount);
-  // During elapsedMinutes, active machines/counters would have served approx:
-  const patientsServedDuringTransit = Math.floor((elapsedMinutes / effectiveSpeed) * effectiveUnits);
-  const projectedWaiting = Math.max(0, current.waitingCount - patientsServedDuringTransit) + projectedLoadCount;
+
+  const patientsServedDuringElapsed = Math.floor((elapsedMinutes / effectiveSpeed) * effectiveUnits);
+  const projectedWaiting = Math.max(0, current.waitingCount - patientsServedDuringElapsed) + projectedLoadCount;
   return Math.round((projectedWaiting * effectiveSpeed) / effectiveUnits);
 }
 
 /**
- * Helper to generate valid permutations/sequences of test execution that satisfy medical prerequisites.
- * For N <= 7 tests: generates valid topological permutations.
- * For N > 7 tests: applies beam search heuristic to prevent factorial explosion (O(N!) -> O(K * N^2)).
+ * Generates topologically valid permutations of tests honoring prerequisite dependencies.
+ * Uses Beam Search for N > 7 to eliminate combinatorial explosion.
  */
 function generateValidSequences(
   tests: DiagnosticTest[],
@@ -151,13 +142,14 @@ function generateValidSequences(
   if (tests.length === 1) return [tests];
 
   const testIdSet = new Set(tests.map(t => t.id));
+
   const isPrereqSatisfied = (test: DiagnosticTest, current: DiagnosticTest[]) => {
     if (!test.prerequisites || test.prerequisites.length === 0) return true;
     return test.prerequisites.every(
-      prereqId => 
-        prereqId === test.id || // self-dependency guard
-        !testIdSet.has(prereqId) || // external/missing prerequisite guard
-        completedTestIds.includes(prereqId) || 
+      prereqId =>
+        prereqId === test.id || // Self-dependency guard
+        !testIdSet.has(prereqId) || // Missing from prescribed set guard
+        completedTestIds.includes(prereqId) ||
         current.some(t => t.id === prereqId)
     );
   };
@@ -174,7 +166,6 @@ function generateValidSequences(
       let branched = false;
       for (let i = 0; i < remaining.length; i++) {
         const nextTest = remaining[i];
-
         if (isPrereqSatisfied(nextTest, current)) {
           branched = true;
           const newRemaining = [...remaining.slice(0, i), ...remaining.slice(i + 1)];
@@ -182,7 +173,7 @@ function generateValidSequences(
         }
       }
 
-      // If cyclic dependency or missing external prereq prevented branching, fallback append
+      // If cyclic dependency blocked all branches, append remaining to prevent deadlocks
       if (!branched && remaining.length > 0) {
         result.push([...current, ...remaining]);
       }
@@ -192,7 +183,7 @@ function generateValidSequences(
     return result.length > 0 ? result : [tests];
   }
 
-  // Beam search for N > 7
+  // Beam Search heuristic for N > 7
   const BEAM_WIDTH = 12;
   let beam: { current: DiagnosticTest[]; remaining: DiagnosticTest[] }[] = [
     { current: [], remaining: [...tests] }
@@ -231,7 +222,7 @@ function generateValidSequences(
 }
 
 /**
- * Simulates a specific test sequence and computes cumulative timeline, scoring, and total duration.
+ * Evaluates total duration, transit time, and scoring penalties for a test sequence.
  */
 function evaluateSequence(
   sequence: DiagnosticTest[],
@@ -241,8 +232,15 @@ function evaluateSequence(
   startTimeDate: Date = new Date(),
   patientId?: string,
   projectedLoadMap: Record<string, number> = {},
-  doctorPriority: DoctorPriority = 'normal'
-): { totalTime: number; steps: RouteStep[]; bottlenecks: string[]; transitTotal: number; penaltyScore: number } {
+  doctorPriority: DoctorPriority = 'normal',
+  completedTestIds: string[] = []
+): {
+  totalTime: number;
+  steps: RouteStep[];
+  bottlenecks: string[];
+  transitTotal: number;
+  penaltyScore: number;
+} {
   let currentTimeOffset = 0;
   let totalTransit = 0;
   let penaltyScore = 0;
@@ -260,11 +258,10 @@ function evaluateSequence(
 
     const projectedLoad = projectedLoadMap[test.departmentId] || 0;
 
-    // Projected wait at arrival
     const projectedWait = estimateProjectedWait(
-      test.departmentId, 
-      currentTimeOffset, 
-      tokens, 
+      test.departmentId,
+      currentTimeOffset,
+      tokens,
       counters,
       patientId,
       departments,
@@ -281,29 +278,27 @@ function evaluateSequence(
     const startOffset = currentTimeOffset + projectedWait;
     const endOffset = startOffset + testDuration;
 
-    // Convert offsets to readable timestamps
     const stepStart = new Date(startTimeDate.getTime() + startOffset * 60000);
     const stepEnd = new Date(startTimeDate.getTime() + endOffset * 60000);
 
-    const formatTime = (d: Date) => 
+    const formatTime = (d: Date) =>
       d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     let reason = '';
     if (idx === 0 && projectedWait <= 5) {
-      reason = 'Lowest queue wait & zero bottleneck to start immediately.';
+      reason = 'Lowest queue wait & immediate availability.';
     } else if (test.requiresFullBladder) {
-      reason = 'Full bladder preparation: prioritized first before bladder voiding.';
+      reason = 'Full bladder preparation: prioritized early before voiding.';
     } else if (test.requiresFasting) {
-      reason = 'Fasting prerequisite: prioritized early to minimize hunger window.';
+      reason = 'Fasting prerequisite: prioritized early to minimize fasting duration.';
     } else if (projectedWait < 10) {
-      reason = 'Lab counter operating near real-time capacity.';
+      reason = 'Diagnostic counter operating near real-time capacity.';
     } else {
-      reason = 'Optimal slot while preceding departments clear pending queue.';
+      reason = 'Optimal sequence while earlier queues clear.';
     }
 
-    // Urgent priority boosts attention
     if (doctorPriority === 'urgent' && idx === 0) {
-      reason = 'Urgent Doctor Priority: Fast-tracked immediately ahead of routine queues.';
+      reason = 'Urgent Doctor Priority: Fast-tracked ahead of routine queues.';
     }
 
     const activeDeptCounters = counters.filter(c => c.departmentId === test.departmentId && c.status === 'active');
@@ -313,15 +308,14 @@ function evaluateSequence(
       stepNumber: idx + 1,
       testId: test.id,
       testName: test.name,
+      technicalName: test.technicalName,
       testCode: test.code,
       departmentId: test.departmentId,
       departmentName: dept?.name || 'Department',
       location: dept?.location || {
         wing: 'East Wing',
         floor: 'Ground Floor',
-        room: 'General Lab',
-        coordX: 50,
-        coordY: 50
+        room: 'Diagnostic Bay'
       },
       recommendedCounterId: recommendedCounter?.id,
       estimatedWaitMinutes: projectedWait,
@@ -339,33 +333,43 @@ function evaluateSequence(
     currentTimeOffset = endOffset;
     previousDept = dept;
 
-    // Heuristic weight penalty adjustments
+    // Penalty adjustments
     if (test.requiresFullBladder && idx > 0) {
       if (doctorPriority === 'priority' || doctorPriority === 'urgent') {
-        penaltyScore += 25 * idx; // Full bladder preparation prioritized for priority consultations
+        penaltyScore += 25 * idx;
       } else {
-        penaltyScore += 2 * idx; // Gentle tie-breaker for standard triage allowing low-wait labs (ECG/X-Ray) to lead
+        penaltyScore += 2 * idx;
       }
     }
+
+    // Fasting priority: penalized if delayed
     if (test.requiresFasting && idx > 1) {
-      penaltyScore += 1 * idx; // Gentle tie-breaker preference for fasting
+      penaltyScore += 1 * idx;
     }
-    const isDeptUnavailable = dept?.availabilityStatus === 'unavailable' || 
+
+    // Prerequisite enforcement: massive penalty if scheduled before prerequisites are satisfied
+    if (test.prerequisites && test.prerequisites.length > 0) {
+      const priorTestIds = sequence.slice(0, idx).map(t => t.id);
+      const isUnmet = test.prerequisites.some(
+        prereqId => !completedTestIds.includes(prereqId) && !priorTestIds.includes(prereqId)
+      );
+      if (isUnmet) {
+        penaltyScore += 50000 * (sequence.length - idx);
+      }
+    }
+
+    const isDeptUnavailable = dept?.availabilityStatus === 'unavailable' ||
       (dept?.activeMachines !== undefined && dept.activeMachines <= 0) ||
       (counters.some(c => c.departmentId === test.departmentId) && activeDeptCounters.length === 0);
+
     if (isDeptUnavailable) {
-      // Heavily penalize unavailable lab so it is never scheduled first when available alternatives exist!
       penaltyScore += 10000 * (sequence.length - idx);
     }
-    // Doctor Priority
-    if (doctorPriority === 'urgent') {
-      if (idx === 0) {
-        penaltyScore -= 15; // Clinical priority weight boost
-      }
-    } else if (doctorPriority === 'priority') {
-      if (idx === 0) {
-        penaltyScore -= 5;
-      }
+
+    if (doctorPriority === 'urgent' && idx === 0) {
+      penaltyScore -= 15;
+    } else if (doctorPriority === 'priority' && idx === 0) {
+      penaltyScore -= 5;
     }
   }
 
@@ -379,18 +383,11 @@ function evaluateSequence(
 }
 
 /**
- * CORE QUEUE ROUTING OPTIMIZER:
- * Solves the Dynamic Multi-Queue Shortest Total Wait Time Problem with weighted scoring:
- * 1. Doctor Priority
- * 2. Current Queue Length
- * 3. Estimated Waiting Time
- * 4. Lab Availability
- * 5. Active Machines
- * 6. Average Test Duration
- * 7. Test Preparation Requirements (Fasting, Full Bladder)
- * 8. Test Dependencies
- * 9. Floor/Room Travel Distance
- * 10. Projected Queue Load
+ * Calculates the optimal diagnostic journey for a patient.
+ * 
+ * Stability Lock Invariant:
+ * If a patient has an active `currentLockedDestinationTestId` and that test is not yet completed,
+ * that test remains LOCKED as Step 1. Rerouting optimizes ONLY the subsequent pending tests.
  */
 export function calculateOptimalQueueRoute(
   patient: Patient,
@@ -402,16 +399,7 @@ export function calculateOptimalQueueRoute(
 ): QueueRoutingPlan {
   const completedTestIds = patient.completedTests || [];
 
-  // Strictly scope tokens and counters by hospital tenant if patient.hospitalId is defined
-  const tenantHospitalId = patient.hospitalId;
-  const effectiveTokens = tenantHospitalId
-    ? tokens.filter(t => (t.hospitalId || 'hosp-metro') === tenantHospitalId)
-    : tokens;
-  const effectiveCounters = tenantHospitalId
-    ? counters.filter(c => (c.hospitalId || 'hosp-metro') === tenantHospitalId)
-    : counters;
-
-  // Filter pending tests (exclude already completed tests)
+  // Filter pending tests
   const pendingTestIds = patient.prescribedTests.filter(
     id => !completedTestIds.includes(id)
   );
@@ -427,20 +415,19 @@ export function calculateOptimalQueueRoute(
     .map((testId, idx) => {
       const test = allTests.find(t => t.id === testId);
       const dept = test ? departments.find(d => d.id === test.departmentId) : undefined;
-      const matchedToken = effectiveTokens.find(t => t.patientId === patient.id && t.testId === testId);
+      const matchedToken = tokens.find(t => t.patientId === patient.id && t.testId === testId);
       return {
         stepNumber: idx + 1,
         testId,
         testName: test?.name || 'Completed Investigation',
+        technicalName: test?.technicalName || 'Completed',
         testCode: test?.code || 'DONE',
         departmentId: test?.departmentId || '',
         departmentName: dept?.name || 'Laboratory',
         location: dept?.location || {
           wing: 'East Wing',
           floor: 'Ground Floor',
-          room: 'Diagnostic Bay',
-          coordX: 50,
-          coordY: 50
+          room: 'Diagnostic Bay'
         },
         recommendedCounterId: matchedToken?.counterId,
         estimatedWaitMinutes: 0,
@@ -456,7 +443,6 @@ export function calculateOptimalQueueRoute(
       };
     });
 
-  // If no pending tests, return completed plan
   if (pendingTests.length === 0) {
     return {
       patientId: patient.id,
@@ -470,50 +456,74 @@ export function calculateOptimalQueueRoute(
       fastingSatisfied: true,
       transitTotalMinutes: 0,
       recommendedNextTestId: undefined,
-      recommendationReason: 'All diagnostic investigations completed. Return to doctor consultation area.'
+      recommendationReason: 'All diagnostic investigations completed. Return to doctor consultation room.'
     };
   }
 
   const patientDoctorPriority: DoctorPriority = patient.doctorPriority || 'normal';
 
-  // 1. Evaluate Naive Sequence (Original Prescribed Order for pending tests)
-  const naiveSequence = [...pendingTests]; // preserves order written on doctor's slip
+  // Check Stability Lock:
+  // If destination is locked to a test that is still pending, it MUST stay at position 1!
+  const lockedTestId = patient.currentLockedDestinationTestId;
+  const isLockedAndPending = lockedTestId && pendingTests.some(t => t.id === lockedTestId);
+
+  let candidatePermutations: DiagnosticTest[][];
+
+  if (isLockedAndPending) {
+    const lockedTest = pendingTests.find(t => t.id === lockedTestId)!;
+    const otherPending = pendingTests.filter(t => t.id !== lockedTestId);
+    const subPermutations = generateValidSequences(otherPending, [...completedTestIds, lockedTestId]);
+    candidatePermutations = subPermutations.map(sub => [lockedTest, ...sub]);
+  } else {
+    candidatePermutations = generateValidSequences(pendingTests, completedTestIds);
+  }
+
+  const naiveSequence = [...pendingTests];
   const naiveEvaluation = evaluateSequence(
-    naiveSequence, 
-    departments, 
-    effectiveTokens, 
-    effectiveCounters, 
-    now, 
+    naiveSequence,
+    departments,
+    tokens,
+    counters,
+    now,
     patient.id,
     projectedLoadMap,
-    patientDoctorPriority
+    patientDoctorPriority,
+    completedTestIds
   );
-
-  // 2. Generate and evaluate all valid smart permutations
-  const validPermutations = generateValidSequences(pendingTests, completedTestIds);
 
   const getEvaluationScore = (ev: { totalTime: number; penaltyScore: number }) =>
     ev.totalTime + ev.penaltyScore;
 
-  let bestEvaluation = naiveEvaluation;
+  const firstValidPerm = candidatePermutations[0] || naiveSequence;
+  let bestEvaluation = evaluateSequence(
+    firstValidPerm,
+    departments,
+    tokens,
+    counters,
+    now,
+    patient.id,
+    projectedLoadMap,
+    patientDoctorPriority,
+    completedTestIds
+  );
 
-  for (const perm of validPermutations) {
+  for (const perm of candidatePermutations) {
     const evaluation = evaluateSequence(
-      perm, 
-      departments, 
-      effectiveTokens, 
-      effectiveCounters, 
-      now, 
+      perm,
+      departments,
+      tokens,
+      counters,
+      now,
       patient.id,
       projectedLoadMap,
-      patientDoctorPriority
+      patientDoctorPriority,
+      completedTestIds
     );
     if (getEvaluationScore(evaluation) < getEvaluationScore(bestEvaluation)) {
       bestEvaluation = evaluation;
     }
   }
 
-  // Renumber bestEvaluation steps to follow completedSteps
   const offset = completedSteps.length;
   const renumberedSteps: RouteStep[] = bestEvaluation.steps.map((step, idx) => ({
     ...step,
@@ -523,16 +533,14 @@ export function calculateOptimalQueueRoute(
 
   const allRouteSteps = [...completedSteps, ...renumberedSteps];
 
-  // Calculate savings
   const naiveTotal = Math.max(naiveEvaluation.totalTime, 1);
   const smartTotal = bestEvaluation.totalTime;
   const timeSaved = Math.max(0, naiveTotal - smartTotal);
   const percentage = Math.round((timeSaved / naiveTotal) * 100);
 
-  // Identify bottlenecks avoided: departments that had severe wait in naive, but mitigated in smart
   const avoided = naiveEvaluation.bottlenecks.filter(b => !bestEvaluation.bottlenecks.includes(b));
   if (avoided.length === 0 && naiveEvaluation.bottlenecks.length > 0) {
-    avoided.push(...naiveEvaluation.bottlenecks.map(b => `${b} (peak rush deferred)`));
+    avoided.push(...naiveEvaluation.bottlenecks.map(b => `${b} (peak rush avoided)`));
   }
 
   const upNextStep = renumberedSteps[0];
@@ -545,7 +553,7 @@ export function calculateOptimalQueueRoute(
     naiveTotalTimeMinutes: naiveTotal,
     timeSavedMinutes: timeSaved,
     percentageSaved: percentage,
-    bottlenecksAvoided: avoided.length > 0 ? avoided : ['Hematology Peak Rush (BLD-101)'],
+    bottlenecksAvoided: avoided.length > 0 ? avoided : ['Hematology Peak Rush Avoided'],
     fastingSatisfied: true,
     transitTotalMinutes: bestEvaluation.transitTotal,
     recommendedNextTestId: upNextStep?.testId,

@@ -1,14 +1,17 @@
 /**
- * Hospital Chime & Token Voice Synthesizer
- * Uses native Web Audio API for harmonic dual-tone hospital chime
- * and Web Speech API for automated voice calling.
+ * Hospital Audio Chime & Dual-Lingual Voice Synthesizer
+ * 
+ * Invariants:
+ * 1. Web Audio dual-tone hospital chime strictly 880Hz -> 440Hz harmonic tones.
+ * 2. Web Speech API dual-lingual (English + Hindi) broadcast.
+ * 3. Graceful abort of previous utterances to prevent speech overlap.
  */
 
 class HospitalAudioEngine {
   private ctx: AudioContext | null = null;
   private currentAnnouncementId: number = 0;
 
-  private initContext() {
+  private initContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -17,133 +20,239 @@ class HospitalAudioEngine {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
 
+  private speechListeners = new Set<(isPlaying: boolean) => void>();
+
+  public onSpeechStatus(listener: (isPlaying: boolean) => void): () => void {
+    this.speechListeners.add(listener);
+    return () => this.speechListeners.delete(listener);
+  }
+
+  private notifySpeechStatus(isPlaying: boolean): void {
+    this.speechListeners.forEach(fn => fn(isPlaying));
+  }
+
+  private getBestVoice(langPrefix: string): SpeechSynthesisVoice | null {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return null;
+      return (
+        voices.find(v => v.lang.toLowerCase() === langPrefix.toLowerCase()) ||
+        voices.find(v => v.lang.toLowerCase().startsWith(langPrefix.toLowerCase())) ||
+        null
+      );
+    } catch {
+      return null;
+    }
+  }
+
   /**
-   * Instantly stops any ongoing voice synthesis, audio queues, and pending repetitions
+   * Instantly stops any ongoing voice synthesis and audio playback.
    */
-  public stopAll() {
+  public stopAll(): void {
     this.currentAnnouncementId++;
+    this.notifySpeechStatus(false);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
       } catch {
-        // ignore cancellation error
+        // Safe catch for browser speech API edge cases
       }
     }
   }
 
   /**
-   * Plays a crisp, gentle hospital notification chime (F5 -> C6 harmonic ding-dong)
+   * Plays the official dual-tone hospital notification chime:
+   * Tone 1: 880 Hz (A5)
+   * Tone 2: 440 Hz (A4)
    */
-  public playChime() {
+  public playChime(): void {
     try {
       const ctx = this.initContext();
       if (!ctx) return;
 
       const now = ctx.currentTime;
 
-      // Note 1: F5 (698.46 Hz)
+      // Tone 1: 880 Hz (High chime)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(698.46, now);
+      osc1.frequency.setValueAtTime(880, now);
       gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.2, now + 0.04);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      gain1.gain.linearRampToValueAtTime(0.25, now + 0.04);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
       osc1.start(now);
-      osc1.stop(now + 0.6);
+      osc1.stop(now + 0.5);
 
-      // Note 2: C6 (1046.50 Hz)
+      // Tone 2: 440 Hz (Hospital harmonic resolution)
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1046.5, now + 0.25);
-      gain2.gain.setValueAtTime(0, now + 0.25);
-      gain2.gain.linearRampToValueAtTime(0.25, now + 0.29);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      osc2.frequency.setValueAtTime(440, now + 0.22);
+      gain2.gain.setValueAtTime(0, now + 0.22);
+      gain2.gain.linearRampToValueAtTime(0.3, now + 0.26);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
       osc2.connect(gain2);
       gain2.connect(ctx.destination);
-      osc2.start(now + 0.25);
-      osc2.stop(now + 0.9);
+      osc2.start(now + 0.22);
+      osc2.stop(now + 0.85);
     } catch {
-      // Audio might be blocked by browser autoplay policy before user interaction
+      // Audio playback might be deferred by browser policy before initial gesture
     }
   }
 
   /**
-   * Announces a token call with spoken audio:
-   * 1. Instantly cancels any prior voice so rapid clicks speak ONLY the active token.
-   * 2. Speaks: "Token [token], [patientName], please proceed to [counterName], [room]."
-   * 3. Repeats EXACTLY twice (2 times) and then terminates.
+   * Broadcasts token call with Web Audio dual chime (880Hz -> 440Hz)
+   * followed by dual-lingual TTS announcement (English then Hindi).
    */
-  public announceToken(tokenNumber: string, counterName: string, room: string, patientName?: string) {
-    // 1. Immediately abort any ongoing speech from earlier calls
+  public announceToken(
+    tokenNumber: string,
+    counterName: string,
+    roomNo: string,
+    patientName?: string
+  ): void {
     this.stopAll();
-
-    // 2. Play chime
     this.playChime();
 
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     const myId = ++this.currentAnnouncementId;
+    const cleanPatient = patientName && patientName.trim().length > 0 ? patientName.trim() : '';
+    const cleanRoom = roomNo.replace(/[()]/g, '').trim();
 
-    // Readable spelled-out token (e.g. "R A D 1 0 2")
-    const formattedToken = tokenNumber.split('').join(' ');
-    const cleanPatient = patientName && patientName !== 'Walk-in' && patientName.trim().length > 0
-      ? patientName.trim()
-      : '';
-    const cleanRoom = room.replace(/\(.*\)/g, '').trim();
+    // Natural token pronunciation: e.g. "B 14" instead of "B minus 14"
+    const naturalToken = tokenNumber.replace(/[-_]/g, ' ').trim();
 
-    // Natural hospital calling announcement
-    const textToSpeak = cleanPatient
-      ? `Token ${formattedToken}, ${cleanPatient}, please enter ${counterName}, ${cleanRoom}.`
-      : `Token ${formattedToken}, please proceed to ${counterName}, ${cleanRoom}.`;
+    const enText = cleanPatient
+      ? `Token ${naturalToken}. ${cleanPatient}, please proceed to ${cleanRoom}, ${counterName}.`
+      : `Token ${naturalToken}, please proceed to ${cleanRoom}, ${counterName}.`;
 
-    const speakOnce = (repetition: number) => {
-      // If a newer announcement has started, cancel this execution
+    const hiText = cleanPatient
+      ? `टोकन ${naturalToken}. ${cleanPatient} जी, कृपया ${cleanRoom}, ${counterName} में जाएं।`
+      : `टोकन ${naturalToken}, कृपया ${cleanRoom}, ${counterName} में जाएं।`;
+
+    const speakSequence = () => {
       if (myId !== this.currentAnnouncementId) return;
 
       try {
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.rate = 0.92;
-        utterance.pitch = 1.05;
-        utterance.lang = 'en-US';
+        const enUtterance = new SpeechSynthesisUtterance(enText);
+        enUtterance.rate = 0.95;
+        enUtterance.lang = 'en-IN';
+        const enVoice = this.getBestVoice('en-IN') || this.getBestVoice('en');
+        if (enVoice) enUtterance.voice = enVoice;
 
-        utterance.onend = () => {
+        this.notifySpeechStatus(true);
+
+        enUtterance.onend = () => {
           if (myId !== this.currentAnnouncementId) return;
+          setTimeout(() => {
+            if (myId !== this.currentAnnouncementId) return;
+            try {
+              const hiUtterance = new SpeechSynthesisUtterance(hiText);
+              hiUtterance.rate = 0.92;
+              hiUtterance.lang = 'hi-IN';
+              const hiVoice = this.getBestVoice('hi-IN') || this.getBestVoice('hi');
+              if (hiVoice) hiUtterance.voice = hiVoice;
 
-          // Repeat once more (total 2 times), then stop!
-          if (repetition === 1) {
-            setTimeout(() => {
-              if (myId === this.currentAnnouncementId) {
-                speakOnce(2);
-              }
-            }, 650);
+              hiUtterance.onend = () => {
+                if (myId === this.currentAnnouncementId) {
+                  this.notifySpeechStatus(false);
+                }
+              };
+              hiUtterance.onerror = () => {
+                if (myId === this.currentAnnouncementId) {
+                  this.notifySpeechStatus(false);
+                }
+              };
+
+              window.speechSynthesis.speak(hiUtterance);
+            } catch {
+              this.notifySpeechStatus(false);
+            }
+          }, 350);
+        };
+
+        enUtterance.onerror = () => {
+          if (myId === this.currentAnnouncementId) {
+            this.notifySpeechStatus(false);
           }
         };
 
-        utterance.onerror = () => {
-          // graceful fallback
-        };
-
-        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.speak(enUtterance);
       } catch {
-        // speech API error fallback
+        this.notifySpeechStatus(false);
       }
     };
 
-    // Give chime 550ms before speech starts
+    // 500ms delay for chime to finish reverberating
     setTimeout(() => {
       if (myId === this.currentAnnouncementId) {
-        speakOnce(1);
+        speakSequence();
       }
-    }, 550);
+    }, 500);
+  }
+
+  /**
+   * Spoken guidance narration for the Patient Mobile Boarding Pass
+   */
+  public narratePatientBoardingPass(
+    language: 'en' | 'hi',
+    patientName: string,
+    roomNo: string,
+    testName: string,
+    peopleAhead: number,
+    estMinutes: number,
+    preparationInstruction?: string
+  ): void {
+    this.stopAll();
+
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const myId = ++this.currentAnnouncementId;
+    let textToSpeak = '';
+
+    if (language === 'hi') {
+      textToSpeak = `${patientName} जी, अभी कमरा नंबर ${roomNo}, ${testName} के लिए जाएं। आपके आगे ${peopleAhead} लोग हैं, लगभग ${estMinutes} मिनट का समय लगेगा।`;
+      if (preparationInstruction) {
+        textToSpeak += ` ध्यान दें: ${preparationInstruction}।`;
+      }
+    } else {
+      textToSpeak = `Hello ${patientName}. Please proceed to Room ${roomNo} for ${testName}. There are ${peopleAhead} people ahead of you, estimated wait is ${estMinutes} minutes.`;
+      if (preparationInstruction) {
+        textToSpeak += ` Instruction: ${preparationInstruction}.`;
+      }
+    }
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 0.93;
+      utterance.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
+      const voice = this.getBestVoice(utterance.lang) || this.getBestVoice(language);
+      if (voice) utterance.voice = voice;
+
+      this.notifySpeechStatus(true);
+      utterance.onend = () => {
+        if (myId === this.currentAnnouncementId) {
+          this.notifySpeechStatus(false);
+        }
+      };
+      utterance.onerror = () => {
+        if (myId === this.currentAnnouncementId) {
+          this.notifySpeechStatus(false);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      this.notifySpeechStatus(false);
+    }
   }
 }
 

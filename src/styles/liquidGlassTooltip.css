@@ -1,0 +1,79 @@
+/* ── LIQUID GLASS UNIVERSAL TOOLTIP ── */
+.liquid-glass-tooltip {
+  z-index: 99999999;
+  pointer-events: none;
+  isolation: isolate;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  max-width: 280px;
+  width: max-content;
+  box-sizing: border-box;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-align: left;
+  user-select: none;
+  font-family: inherit;
+}
+
+/* Dark Mode Liquid Glass */
+.liquid-glass-tooltip.is-dark {
+  background: linear-gradient(135deg, rgba(20, 24, 38, 0.85) 0%, rgba(12, 16, 26, 0.65) 50%, rgba(18, 22, 34, 0.80) 100%);
+  color: #ffffff;
+  backdrop-filter: blur(26px) saturate(200%) contrast(106%);
+  -webkit-backdrop-filter: blur(26px) saturate(200%) contrast(106%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    0 12px 34px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgba(255, 255, 255, 0.75),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.20);
+}
+
+/* Light Mode Frosted Glass */
+.liquid-glass-tooltip.is-light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0.88) 100%);
+  color: #0f172a;
+  backdrop-filter: blur(26px) saturate(200%) contrast(106%);
+  -webkit-backdrop-filter: blur(26px) saturate(200%) contrast(106%);
+  border: 1px solid rgba(255, 255, 255, 0.90);
+  box-shadow: 
+    0 10px 28px -4px rgba(0, 0, 0, 0.16),
+    inset 0 1px 2px rgba(255, 255, 255, 1.0),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.90),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* Spring Pop Micro-Animations */
+.liquid-glass-tooltip.is-above {
+  animation: globalTooltipPop 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.liquid-glass-tooltip.is-below {
+  animation: globalTooltipPopBelow 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes globalTooltipPop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 4px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+@keyframes globalTooltipPopBelow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}

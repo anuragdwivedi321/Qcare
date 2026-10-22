@@ -1,101 +1,210 @@
-import { 
-  Department, 
-  DiagnosticTest, 
-  Counter, 
-  Doctor, 
-  Patient, 
-  QueueToken, 
-  ClinicalReport,
+import {
   Hospital,
-  StaffMember,
-  LabMachine,
-  AuditLog,
-  HospitalFloorRoom
+  Department,
+  DiagnosticTest,
+  Counter,
+  Patient,
+  QueueToken,
+  ClinicalReport
 } from '../types';
 
-export const INITIAL_HOSPITALS: Hospital[] = [
+export const DEFAULT_HOSPITAL: Hospital = {
+  id: 'H001',
+  name: 'Max Super Speciality Hospital, Saket',
+  code: 'MAX-01',
+  shortName: 'Max Saket',
+  tagline: 'Tertiary Care & Smart Diagnostic Network',
+  address: '1-2, Press Enclave Marg, Saket, New Delhi, Delhi 110017',
+  city: 'New Delhi',
+  locality: 'Saket',
+  contactNumber: '+91 11 2651 5050',
+  doctorName: 'Dr. Ananya Sen',
+  doctorRoom: 'Chamber 204',
+  doctorAvatar: '/doctors/doctor_female_1.jpg',
+  doctorGender: 'Female',
+  helpdeskPhone: '+91 11 2651 5050',
+  officialWebsite: 'https://www.maxhealthcare.in/hospital-network/max-super-speciality-hospital-saket',
+  opdTimings: 'Mon – Sat: 08:30 AM – 04:30 PM',
+  aliases: ['H001', 'MAX-01', 'MAX01', 'MAX', 'MAX SAKET'],
+  departmentsList: ['Cardiology', 'Oncology', 'Neurology', 'Neurosurgery', 'Nephrology', 'General Surgery', 'Radiology and Imaging', 'Ophthalmology', 'Pulmonology', 'ENT'],
+  diagnosticServicesList: ['CT', 'Ultrasound', 'Mammography', 'EEG', 'Laboratory services', 'OCT Retina', 'Spirometry', 'Audiometry'],
+  dataStatus: 'public_reference_partial'
+};
+
+export const REGISTERED_HOSPITALS: Hospital[] = [
+  DEFAULT_HOSPITAL,
   {
-    id: 'qcare-demo',
-    name: 'QCare Demo Hospital',
-    code: 'QCARE-HOSP-001',
-    shortName: 'QCare Demo Hospital',
-    tier: 'multi_specialty',
-    tagline: 'Hospital Diagnostic Queue Management & Smart Patient Routing Hub',
-    address: 'Plot 108, Healthcare Boulevard, Cyber City',
+    id: 'H002',
+    name: 'Indraprastha Apollo Hospitals',
+    code: 'APOLLO-02',
+    shortName: 'Apollo Delhi',
+    tagline: 'Advanced Outpatient Flow & Multi-Speciality Diagnostics',
+    address: 'NH-19, Jasola Vihar, New Delhi, Delhi 110020',
     city: 'New Delhi',
-    state: 'Delhi',
-    contactNumber: '+91 11 4000 9000',
-    email: 'contact@qcare.demo',
-    logo: '/logo.png',
-    numberOfFloors: 4,
-    status: 'active',
-    plan: 'enterprise',
-    workingHours: '08:00 AM - 08:00 PM',
-    doctorCount: 4,
-    counterCount: 6,
-    badge: 'Flagship QCare Hub',
-    accentColor: 'blue',
-    queueSettings: {
-      autoCall: true,
-      maxWaitAlertMinutes: 30,
-      finalInstruction: 'Please return to your doctor / consultation area for final report evaluation.'
-    }
+    locality: 'Jasola Vihar',
+    contactNumber: '+91 11 7179 1090',
+    doctorName: 'Dr. Rajesh Verma',
+    doctorRoom: 'Chamber 101',
+    doctorAvatar: '/doctors/doctor_male_1.jpg',
+    doctorGender: 'Male',
+    helpdeskPhone: '+91 11 7179 1090',
+    officialWebsite: 'https://www.apollohospitals.com/hospitals/apollo-hospitals-delhi',
+    opdTimings: 'Mon – Sat: 08:00 AM – 05:00 PM',
+    aliases: ['H002', 'APOLLO-02', 'APOLLO02', 'APOLLO', 'APOLLO DELHI', 'SARITA VIHAR'],
+    departmentsList: ['Cardiology', 'Oncology', 'Orthopaedics', 'Neurology', 'Nephrology', 'Internal Medicine', 'ENT', 'Ophthalmology', 'Laboratory and Cardio Diagnostics'],
+    diagnosticServicesList: ['Laboratory sample collection', 'Cardio diagnostics', 'Apollo Health Check', 'OCT Retina', 'EEG'],
+    dataStatus: 'public_reference_partial'
   },
   {
-    id: 'hosp-metro',
-    name: 'CityCare Multi-Specialty Hospital (Metro Campus)',
-    code: 'QCARE-METRO-002',
-    shortName: 'Metro Hospital',
-    tier: 'multi_specialty',
-    tagline: '500-Bed Tertiary Care & Advanced Multi-Specialty OPD',
-    address: 'Sector 42, Central Medical Enclave',
-    doctorCount: 4,
-    counterCount: 7,
-    badge: 'Flagship Multi-Specialty',
-    accentColor: 'blue'
+    id: 'H003',
+    name: 'All India Institute of Medical Sciences, New Delhi',
+    code: 'AIIMS-03',
+    shortName: 'AIIMS Delhi',
+    tagline: 'Premier Autonomous Institute & Smart Referral Queue',
+    address: 'Sri Aurobindo Marg, Ansari Nagar East, New Delhi, Delhi 110029',
+    city: 'New Delhi',
+    locality: 'Ansari Nagar East',
+    contactNumber: '+91 11 2658 8500',
+    doctorName: 'Dr. R. K. Singhal',
+    doctorRoom: 'Chamber 12',
+    doctorAvatar: '/doctors/doctor_male_2.jpg',
+    doctorGender: 'Male',
+    helpdeskPhone: '+91 11 2658 8500',
+    officialWebsite: 'https://www.aiims.edu/',
+    opdTimings: 'Mon – Sat: 08:00 AM – 01:00 PM',
+    aliases: ['H003', 'AIIMS-03', 'AIIMS03', 'AIIMS', 'AIIMS DELHI'],
+    departmentsList: ['Cardiology', 'Neurology', 'Nephrology', 'Oncology', 'Radiodiagnosis', 'Pathology', 'Microbiology', 'Pulmonology', 'Ophthalmology'],
+    diagnosticServicesList: ['Laboratory services', 'Radiology and imaging', 'Neurophysiology', 'Pulmonary function'],
+    dataStatus: 'public_reference_partial'
   },
   {
-    id: 'hosp-east',
-    name: 'CityCare Prime Diagnostic Clinic (East Wing)',
-    shortName: 'Prime Diagnostic',
-    tier: 'diagnostic_center',
-    tagline: 'High-Throughput Clinical Labs & Precision Radiology',
-    address: 'East Health Plaza, 2nd Floor',
-    doctorCount: 2,
-    counterCount: 4,
-    badge: 'Diagnostic Plaza',
-    accentColor: 'purple'
+    id: 'H004',
+    name: 'Vardhman Mahavir Medical College and Safdarjung Hospital',
+    code: 'SAFDARJUNG-04',
+    shortName: 'Safdarjung Hospital',
+    tagline: 'Central OPD & Multi-Laboratory Diagnostic Services',
+    address: 'Ansari Nagar West, New Delhi, Delhi 110029',
+    city: 'New Delhi',
+    locality: 'Ansari Nagar West',
+    contactNumber: '+91 11 2616 5060',
+    doctorName: 'Dr. Sunita Batra',
+    doctorRoom: 'Room 108',
+    doctorAvatar: '/doctors/doctor_female_2.jpg',
+    doctorGender: 'Female',
+    helpdeskPhone: '+91 11 2616 5060',
+    officialWebsite: 'https://vmmc-sjh.mohfw.gov.in/',
+    opdTimings: 'Mon – Sat: 08:30 AM – 01:30 PM',
+    aliases: ['H004', 'SAFDARJUNG-04', 'SAFDARJUNG04', 'SAFDARJUNG', 'SJH', 'SJH-04', 'VMMC'],
+    departmentsList: ['Pathology', 'Microbiology', 'Biochemistry', 'Haematology', 'Radiodiagnosis', 'Cardiology', 'Neurology'],
+    diagnosticServicesList: ['Central sample collection centre', 'Clinical pathology', 'Haematology', 'Molecular pathology', 'Blood bank and transfusion medicine', 'Emergency laboratory', 'Burns and plastic surgery laboratory', 'Gynaecology laboratory', 'HLA laboratory', 'Immunology laboratory', 'Histopathology and cytopathology'],
+    dataStatus: 'public_reference_partial'
   },
   {
-    id: 'hosp-clinic',
-    name: "Dr. Sarah's Family Practice (Single-Doctor Clinic)",
-    shortName: "Dr. Sarah's Clinic",
-    tier: 'single_doctor_clinic',
-    tagline: 'Unified 1-Doctor Family OPD with Attached Phlebotomy & ECG Desk',
-    address: 'Suite 101, Green Park Community Center',
-    doctorCount: 1,
-    counterCount: 2,
-    badge: 'Single-Doctor Practice',
-    accentColor: 'emerald'
+    id: 'H005',
+    name: 'Atal Bihari Vajpayee Institute of Medical Sciences and Dr. Ram Manohar Lohia Hospital',
+    code: 'RML-05',
+    shortName: 'RML Hospital',
+    tagline: 'Comprehensive Central Government Clinical & Diagnostic Wing',
+    address: 'Baba Kharak Singh Road, New Delhi, Delhi 110001',
+    city: 'New Delhi',
+    locality: 'Connaught Place area',
+    contactNumber: '+91 11 2336 5525',
+    doctorName: 'Dr. Arvind Joshi',
+    doctorRoom: 'Room 205',
+    doctorAvatar: '/doctors/doctor_male_1.jpg',
+    doctorGender: 'Male',
+    helpdeskPhone: '+91 11 2336 5525',
+    officialWebsite: 'https://rmlh.mohfw.gov.in/',
+    opdTimings: 'Mon – Sat: 08:30 AM – 01:00 PM',
+    aliases: ['H005', 'RML-05', 'RML05', 'RML', 'ABVIMS', 'RML HOSPITAL'],
+    departmentsList: ['General Medicine', 'General Surgery', 'Orthopaedics', 'Obstetrics and Gynaecology', 'Paediatrics', 'Radiodiagnosis', 'Laboratory services'],
+    diagnosticServicesList: ['Laboratory services', 'CT and ultrasound', 'X-ray', 'DEXA Scan'],
+    dataStatus: 'public_reference_partial'
+  },
+  {
+    id: 'H006',
+    name: 'Lok Nayak Hospital',
+    code: 'LNJP-06',
+    shortName: 'LNJP Hospital',
+    tagline: 'Tertiary Diagnostic & Trauma Care Flow Center',
+    address: 'Jawaharlal Nehru Marg, Delhi Gate, New Delhi, Delhi 110002',
+    city: 'New Delhi',
+    locality: 'Delhi Gate',
+    contactNumber: '+91 11 2323 3000',
+    doctorName: 'Dr. Meenakshi Sundaram',
+    doctorRoom: 'Chamber 14',
+    doctorAvatar: '/doctors/doctor_female_1.jpg',
+    doctorGender: 'Female',
+    helpdeskPhone: '+91 11 2323 3000',
+    officialWebsite: 'https://lnjp.delhi.gov.in/',
+    opdTimings: 'Mon – Sat: 08:00 AM – 02:00 PM',
+    aliases: ['H006', 'LNJP-06', 'LNJP06', 'LNJP', 'LOK NAYAK', 'MAMC'],
+    departmentsList: ['Pathology', 'Biochemistry', 'Microbiology', 'Paediatrics', 'Orthopaedics', 'General Surgery', 'Radiology'],
+    diagnosticServicesList: ['Ultrasound and Doppler scheduling', 'CT scheduling', 'MRI scheduling', 'Emergency radiology', 'Trauma X-ray', 'OPD chest and abdomen X-ray'],
+    dataStatus: 'public_reference_partial'
   }
 ];
+
+export function findHospitalByQuery(query: string): Hospital | undefined {
+  const clean = query.trim();
+  if (!clean) return undefined;
+  const normalizedCode = clean.toUpperCase().replace(/\s+/g, '-');
+  const codeNoHyphen = clean.toUpperCase().replace(/[\s-]+/g, '');
+  const rawLower = clean.toLowerCase();
+
+  return REGISTERED_HOSPITALS.find(h => {
+    // 1. Direct or normalized ID match (e.g. H001, H002, hosp-max-01)
+    if (h.id.toUpperCase() === clean.toUpperCase() || h.id.toUpperCase().replace(/[\s-]+/g, '') === codeNoHyphen) {
+      return true;
+    }
+
+    // 2. Direct code match (e.g. MAX-01, Max 01, MAX01)
+    const hCodeNorm = h.code.toUpperCase().replace(/\s+/g, '-');
+    const hCodeNoHyphen = h.code.toUpperCase().replace(/[\s-]+/g, '');
+    if (hCodeNorm === normalizedCode || hCodeNoHyphen === codeNoHyphen) {
+      return true;
+    }
+
+    // 3. Aliases match (e.g. 'H001', 'MAX-01', 'MAX01', 'MAX', 'MAX SAKET')
+    if (h.aliases && h.aliases.some(alias => {
+      const aNorm = alias.toUpperCase().replace(/\s+/g, '-');
+      const aNoHyphen = alias.toUpperCase().replace(/[\s-]+/g, '');
+      return aNorm === normalizedCode || aNoHyphen === codeNoHyphen || aNorm === clean.toUpperCase() || aNoHyphen === clean.toUpperCase();
+    })) {
+      return true;
+    }
+
+    // 4. Name, shortName, locality matching
+    if (h.name.toLowerCase().includes(rawLower) || h.shortName.toLowerCase().includes(rawLower)) {
+      return true;
+    }
+    if (h.locality && h.locality.toLowerCase().includes(rawLower)) {
+      return true;
+    }
+
+    return false;
+  });
+}
 
 export const INITIAL_DEPARTMENTS: Department[] = [
   {
     id: 'dept-pathology',
-    name: 'Hematology & Clinical Pathology',
+    name: 'Phlebotomy & Blood Lab',
     code: 'BLD',
     category: 'pathology',
     location: {
+      building: 'Diagnostic Plaza',
       wing: 'East Wing',
       floor: 'Ground Floor',
-      room: 'Room G-102 (Phlebotomy Bay)',
-      coordX: 20,
-      coordY: 28,
+      room: 'Room 12',
+      directions: 'From Dr. Ananya Sen (Chamber 204), take Central Tower lift to Ground Floor, cross lobby to Diagnostic Plaza Room 12.'
     },
-    accentColor: '#EF4444', // Red
-    iconName: 'Droplets',
-    description: 'Blood sample collection, CBC, coagulation, and serum analysis'
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, ESR, routine microscopy',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
   },
   {
     id: 'dept-biochem',
@@ -103,15 +212,18 @@ export const INITIAL_DEPARTMENTS: Department[] = [
     code: 'BIO',
     category: 'biochemistry',
     location: {
+      building: 'Diagnostic Plaza',
       wing: 'East Wing',
       floor: 'Ground Floor',
-      room: 'Room G-106 (Metabolic Wing)',
-      coordX: 42,
-      coordY: 28,
+      room: 'Room 14',
+      directions: 'Ground Floor Diagnostic Plaza, past Phlebotomy, at the end of the east clinical corridor.'
     },
-    accentColor: '#F59E0B', // Amber
+    accentColor: '#D97706',
     iconName: 'FlaskConical',
-    description: 'Fasting glucose, HbA1c, Liver & Renal Function profiles'
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
   },
   {
     id: 'dept-cardio',
@@ -119,15 +231,18 @@ export const INITIAL_DEPARTMENTS: Department[] = [
     code: 'ECG',
     category: 'cardiology',
     location: {
-      wing: 'Central Tower',
+      building: 'Central Tower',
+      wing: 'Heart Institute Wing',
       floor: '1st Floor',
-      room: 'Room 104-A (Cardiac Rhythm Lab)',
-      coordX: 52,
-      coordY: 62,
+      room: 'Room 104',
+      directions: 'Take Central Tower Elevator to 1st Floor, follow blue floor line to Heart Institute Suite 104.'
     },
-    accentColor: '#2563EB', // Cobalt Blue
+    accentColor: '#2563EB',
     iconName: 'Activity',
-    description: '12-lead digital ECG, Holter monitoring, stress testing'
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
   },
   {
     id: 'dept-radiology',
@@ -135,3128 +250,2460 @@ export const INITIAL_DEPARTMENTS: Department[] = [
     code: 'RAD',
     category: 'radiology',
     location: {
-      wing: 'West Wing',
+      building: 'West Wing',
+      wing: 'Imaging Block',
       floor: 'Basement 1',
-      room: 'B1-08 (Digital X-Ray Vault)',
-      coordX: 82,
-      coordY: 30,
+      room: 'Room B-08',
+      directions: 'Take West Wing service stairs or Lift 3 down to Basement 1, follow orange signage to Digital Radiography console.'
     },
-    accentColor: '#8B5CF6', // Purple
+    accentColor: '#7C3AED',
     iconName: 'ScanLine',
-    description: 'Low-dose digital X-Ray PA/Lateral views, fluoroscopy'
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
   },
   {
     id: 'dept-ultrasound',
-    name: 'Ultrasonography & Doppler Unit',
+    name: 'Ultrasonography & Doppler Suite',
     code: 'USG',
     category: 'ultrasound',
     location: {
-      wing: 'West Wing',
+      building: 'Diagnostic Plaza',
+      wing: 'Sonography Wing',
       floor: 'Ground Floor',
-      room: 'Room G-215 (Sonography Suite)',
-      coordX: 82,
-      coordY: 72,
+      room: 'Room 10',
+      directions: 'Ground Floor Diagnostic Plaza, adjacent to patient hydration lounge near Room 10.'
     },
-    accentColor: '#10B981', // Emerald
-    iconName: 'Radar',
-    description: 'High-resolution abdominal, pelvic, and arterial Doppler USG'
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
   },
   {
     id: 'dept-ophthalmology',
-    name: 'Ophthalmic Diagnostics & Retina Scan',
+    name: 'Ophthalmology & Retina Diagnostic Clinic',
     code: 'EYE',
     category: 'ophthalmology',
     location: {
-      wing: 'East Wing',
+      building: 'Central Tower',
+      wing: 'Speciality OPD Wing',
       floor: '2nd Floor',
-      room: 'Room 208 (Refraction & OCT)',
-      coordX: 18,
-      coordY: 75,
+      room: 'Room 218',
+      directions: 'Take Central Lift to 2nd Floor, turn right past OPD Pharmacy to Eye & Retina Clinic.'
     },
-    accentColor: '#4F46E5', // Indigo
+    accentColor: '#0284C7',
     iconName: 'Eye',
-    description: 'Tonometry, slit-lamp fundus photography, OCT retinal scans'
+    description: 'Optical Coherence Tomography (OCT), fundus photography, automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'ENT & Audiology Testing Suite',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'Central Tower',
+      wing: 'Speech & Hearing Bay',
+      floor: '1st Floor',
+      room: 'Room 120',
+      directions: '1st Floor Central Tower, enter Soundproof Audiometry Corridor, Room 120.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'Neuro-Electrophysiology Lab',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'Central Tower',
+      wing: 'Neurosciences Suite',
+      floor: '2nd Floor',
+      room: 'Room 224',
+      directions: '2nd Floor Central Tower, follow purple indicator to Neuro-Electrophysiology Lab 224.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS), evoked potentials',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'Pulmonary Function & Spirometry Lab',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'West Wing',
+      wing: 'Respiratory OPD',
+      floor: 'Ground Floor',
+      room: 'Room 116',
+      directions: 'Ground Floor West Wing, entrance adjacent to Chest & Allergy Clinic.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops, bronchodilator reversibility testing',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'Bone Mineral Densitometry (DEXA) Suite',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'West Wing',
+      wing: 'Bone & Joint Imaging',
+      floor: 'Basement 1',
+      room: 'Room B-22',
+      directions: 'Basement 1 West Wing, adjacent to MRI/CT reception desk, Room B-22.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'Dual-energy X-ray absorptiometry (DEXA) for osteopenia/osteoporosis diagnosis',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
   }
 ];
 
+// ==========================================
+// MULTI-TENANT HOSPITAL DEPARTMENT MAPPINGS
+// Authentic room layouts and turn-by-turn navigation paths per hospital
+// ==========================================
+
+const SAFDARJUNG_DEPARTMENTS: Department[] = [
+  {
+    id: 'dept-pathology',
+    name: 'Central Blood Collection Centre',
+    code: 'BLD',
+    category: 'pathology',
+    location: {
+      building: 'New OPD Complex',
+      wing: 'Gate 2 Corridor',
+      floor: 'Ground Floor',
+      room: 'Room 18',
+      directions: 'From Dr. Sunita Batra (Room 108), turn right along the ground floor corridor towards Gate 2 exit; Room 18 is the Central Blood Collection Bay on your right.'
+    },
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, routine hematology',
+    activeMachines: 3,
+    totalMachines: 3,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-biochem',
+    name: 'Clinical Biochemistry Division',
+    code: 'BIO',
+    category: 'biochemistry',
+    location: {
+      building: 'Main Hospital Block',
+      wing: 'Clinical Biochemistry Wing',
+      floor: '1st Floor',
+      room: 'Room 114',
+      directions: 'Take connecting ramp from New OPD to Main Hospital Block, take stairs/lift to 1st Floor; Room 114 is directly ahead.'
+    },
+    accentColor: '#D97706',
+    iconName: 'FlaskConical',
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-cardio',
+    name: 'Cardiology Non-Invasive Bay',
+    code: 'ECG',
+    category: 'cardiology',
+    location: {
+      building: 'Super Speciality Block (SSB)',
+      wing: 'Cardiology Non-Invasive Wing',
+      floor: '2nd Floor',
+      room: 'Room 208',
+      directions: 'Enter SSB glass entrance, take elevator to 2nd Floor, follow red heart signs to ECG Room 208.'
+    },
+    accentColor: '#2563EB',
+    iconName: 'Activity',
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-radiology',
+    name: 'Central Digital Radiodiagnosis',
+    code: 'RAD',
+    category: 'radiology',
+    location: {
+      building: 'Emergency & Trauma Block',
+      wing: 'Trauma Radiodiagnosis Wing',
+      floor: 'Ground Floor',
+      room: 'Room 06',
+      directions: 'Ground Floor Trauma Block corridor, Room 06 opposite the triage observation unit.'
+    },
+    accentColor: '#7C3AED',
+    iconName: 'ScanLine',
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ultrasound',
+    name: 'Ultrasound & Doppler Wing',
+    code: 'USG',
+    category: 'ultrasound',
+    location: {
+      building: 'New OPD Complex',
+      wing: 'Antenatal & Doppler Diagnostic Wing',
+      floor: '1st Floor',
+      room: 'Room 112',
+      directions: 'Take central escalator or lift in New OPD to 1st Floor; Room 112 is adjacent to Antenatal Clinic.'
+    },
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ophthalmology',
+    name: 'Retina & Glaucoma Diagnostics',
+    code: 'EYE',
+    category: 'ophthalmology',
+    location: {
+      building: 'Eye OPD Wing',
+      wing: 'Eye Diagnostics Section',
+      floor: '2nd Floor',
+      room: 'Room 210',
+      directions: 'Take Eye OPD stairs to 2nd Floor, Room 210 for automated OCT & slit-lamp examination.'
+    },
+    accentColor: '#0284C7',
+    iconName: 'Eye',
+    description: 'Optical Coherence Tomography (OCT), automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'Audiology & Speech Pathology',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'ENT Block',
+      wing: 'Speech & Hearing Bay',
+      floor: '3rd Floor',
+      room: 'Room 304',
+      directions: 'ENT Block 3rd Floor, enter sound-damped corridor to Audiometry Room 304.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'Neurophysiology Lab',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'Super Speciality Block (SSB)',
+      wing: 'Neuro Diagnostic Wing',
+      floor: '3rd Floor',
+      room: 'Room 316',
+      directions: 'Take SSB central lift to 3rd Floor, follow purple signs to Digital EEG Room 316.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS)',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'Respiratory Medicine & Spirometry',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'New OPD Complex',
+      wing: 'Chest OPD Wing',
+      floor: 'Ground Floor',
+      room: 'Room 104',
+      directions: 'Ground Floor New OPD Complex, two doors down from Dr. Sunita Batra, Room 104.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'Bone Mineral Densitometry (DEXA)',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'Trauma & Orthopaedics Block',
+      wing: 'Bone Health Unit',
+      floor: 'Basement 1',
+      room: 'Room B-06',
+      directions: 'Take elevator down to Basement 1 in Orthopaedics Block, Room B-06 on the left.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'DEXA bone density scan for spine & hip',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  }
+];
+
+const AIIMS_DEPARTMENTS: Department[] = [
+  {
+    id: 'dept-pathology',
+    name: 'Central Sample Collection Wing',
+    code: 'BLD',
+    category: 'pathology',
+    location: {
+      building: 'Rajkumari Amrit Kaur (RAK) OPD Block',
+      wing: 'Central Blood Collection Hall',
+      floor: 'Ground Floor',
+      room: 'Room 15',
+      directions: 'From Dr. R. K. Singhal (Chamber 12), follow green floor line directly to Central Blood Collection Hall (Room 15).'
+    },
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, routine hematology',
+    activeMachines: 4,
+    totalMachines: 4,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-biochem',
+    name: 'Department of Biochemistry',
+    code: 'BIO',
+    category: 'biochemistry',
+    location: {
+      building: 'Main Hospital Building',
+      wing: 'Clinical Biochemistry Wing',
+      floor: 'Ground Floor',
+      room: 'Room 22',
+      directions: 'Walk through covered corridor from RAK Block to Main Hospital Ground Floor, Room 22 on the left.'
+    },
+    accentColor: '#D97706',
+    iconName: 'FlaskConical',
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-cardio',
+    name: 'Cardiology Non-Invasive Lab',
+    code: 'ECG',
+    category: 'cardiology',
+    location: {
+      building: 'RAK OPD Block',
+      wing: 'Cardiology OPD',
+      floor: '1st Floor',
+      room: 'Room 108',
+      directions: 'Take RAK Block central staircase to 1st Floor, Room 108 near ECG testing counters.'
+    },
+    accentColor: '#2563EB',
+    iconName: 'Activity',
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-radiology',
+    name: 'Department of Radiodiagnosis',
+    code: 'RAD',
+    category: 'radiology',
+    location: {
+      building: 'Dr. B.R. Ambedkar Block',
+      wing: 'Imaging Wing',
+      floor: 'Ground Floor',
+      room: 'Room 05',
+      directions: 'Ground Floor Ambedkar Block, follow blue signage to Digital Chest Radiography counter (Room 05).'
+    },
+    accentColor: '#7C3AED',
+    iconName: 'ScanLine',
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ultrasound',
+    name: 'Ultrasound Diagnostic Section',
+    code: 'USG',
+    category: 'ultrasound',
+    location: {
+      building: 'RAK OPD Block',
+      wing: 'Ultrasound Diagnostic Section',
+      floor: 'Ground Floor',
+      room: 'Room 19',
+      directions: 'Ground Floor RAK Block, past the pharmacy counter to Room 19 waiting area.'
+    },
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ophthalmology',
+    name: 'Dr. R.P. Centre for Ophthalmic Sciences',
+    code: 'EYE',
+    category: 'ophthalmology',
+    location: {
+      building: 'Dr. R.P. Centre for Ophthalmic Sciences',
+      wing: 'Retina & Diagnostics Wing',
+      floor: '1st Floor',
+      room: 'Room 102',
+      directions: 'Cross to Dr. R.P. Centre, take lift to 1st Floor, Room 102 (OCT & Refraction Lab).'
+    },
+    accentColor: '#0284C7',
+    iconName: 'Eye',
+    description: 'Optical Coherence Tomography (OCT), automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'Speech & Hearing Clinic',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'RAK OPD Block',
+      wing: 'Speech & Hearing Clinic',
+      floor: '2nd Floor',
+      room: 'Room 212',
+      directions: '2nd Floor RAK Block, soundproof audiometry testing chamber Room 212.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'Clinical Neurophysiology Lab',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'Neuro-Sciences Centre (NSC)',
+      wing: 'Clinical Neurophysiology Lab',
+      floor: '1st Floor',
+      room: 'Room 118',
+      directions: 'NSC Building 1st Floor, enter Neurophysiology corridor to EEG Console 118.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS)',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'Pulmonary Function Laboratory',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'Department of Pulmonary Medicine',
+      wing: 'Spirometry & Allergy Lab',
+      floor: 'Ground Floor',
+      room: 'Room 14',
+      directions: 'Ground Floor Pulmonary Wing, follow orange line to Spirometry Cabin Room 14.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'Bone Densitometry Unit',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'Dr. B.R. Ambedkar Block',
+      wing: 'Bone Densitometry Unit',
+      floor: 'Basement 1',
+      room: 'Room B-02',
+      directions: 'Take lift to Basement 1 Ambedkar Block, DEXA Bone Mineral Scan Unit Room B-02.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'DEXA bone density scan for spine & hip',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  }
+];
+
+const APOLLO_DEPARTMENTS: Department[] = [
+  {
+    id: 'dept-pathology',
+    name: 'Central Phlebotomy Lounge',
+    code: 'BLD',
+    category: 'pathology',
+    location: {
+      building: 'Apollo Health Check Block',
+      wing: 'Central Phlebotomy Hall',
+      floor: 'Ground Floor',
+      room: 'Room 102',
+      directions: 'From Dr. Rajesh Verma (Chamber 101), take connecting ramp to Apollo Health Check Block Ground Floor, Room 102.'
+    },
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, routine hematology',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-biochem',
+    name: 'Metabolic & Endocrine Lab',
+    code: 'BIO',
+    category: 'biochemistry',
+    location: {
+      building: 'Apollo Health Check Block',
+      wing: 'Metabolic & Endocrine Lab',
+      floor: 'Ground Floor',
+      room: 'Room 106',
+      directions: 'Ground Floor Health Check Block, proceed past Phlebotomy to Room 106 counter.'
+    },
+    accentColor: '#D97706',
+    iconName: 'FlaskConical',
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-cardio',
+    name: 'Non-Invasive Cardiology Suite',
+    code: 'ECG',
+    category: 'cardiology',
+    location: {
+      building: 'Apollo Heart Centre',
+      wing: 'Non-Invasive Cardiology',
+      floor: '2nd Floor',
+      room: 'Room 204',
+      directions: 'Take Heart Centre glass lift to 2nd Floor, follow red cardiac icon to Room 204.'
+    },
+    accentColor: '#2563EB',
+    iconName: 'Activity',
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-radiology',
+    name: 'Digital Radiography Console',
+    code: 'RAD',
+    category: 'radiology',
+    location: {
+      building: 'Diagnostic Radiology Tower',
+      wing: 'Digital Imaging Bay',
+      floor: 'Basement 1',
+      room: 'Room B-04',
+      directions: 'Take Tower Elevator down to Basement 1, follow yellow pathway to X-Ray Bay B-04.'
+    },
+    accentColor: '#7C3AED',
+    iconName: 'ScanLine',
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ultrasound',
+    name: 'Diagnostic Ultrasound Suite',
+    code: 'USG',
+    category: 'ultrasound',
+    location: {
+      building: 'Apollo Health Check Block',
+      wing: 'Ultrasound Suite',
+      floor: 'Ground Floor',
+      room: 'Room 110',
+      directions: 'Ground Floor Health Check Block, opposite Patient Helpdesk Lounge, Room 110.'
+    },
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ophthalmology',
+    name: 'Apollo Retina & OCT Centre',
+    code: 'EYE',
+    category: 'ophthalmology',
+    location: {
+      building: 'Main Hospital Block',
+      wing: 'Apollo Eye Clinic',
+      floor: '2nd Floor',
+      room: 'Room 308',
+      directions: 'Take Lift A to 2nd Floor, walk straight to Apollo Retina & OCT Centre 308.'
+    },
+    accentColor: '#0284C7',
+    iconName: 'Eye',
+    description: 'Optical Coherence Tomography (OCT), automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'ENT & Cochlear Implant Bay',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'Main Hospital Block',
+      wing: 'ENT & Cochlear Implant Bay',
+      floor: '1st Floor',
+      room: 'Room 215',
+      directions: '1st Floor Main Block, corridor next to Audiology booth 215.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'Neurosciences EEG & Sleep Lab',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'Neurosciences Tower',
+      wing: 'EEG & Sleep Lab',
+      floor: '2nd Floor',
+      room: 'Room 220',
+      directions: '2nd Floor Neurosciences Tower, entrance through Room 220.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS)',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'Pulmonary Function Clinic',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'Main Hospital Block',
+      wing: 'Chest & Sleep Diagnostics',
+      floor: 'Ground Floor',
+      room: 'Room 112',
+      directions: 'Ground Floor Main Block, near West Gate exit, Room 112.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'Bone Mineral Density Bay',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'Diagnostic Radiology Tower',
+      wing: 'Bone Mineral Density Bay',
+      floor: 'Basement 1',
+      room: 'Room B-12',
+      directions: 'Basement 1 Radiology Tower, corridor next to X-Ray console, Room B-12.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'DEXA bone density scan for spine & hip',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  }
+];
+
+const RML_DEPARTMENTS: Department[] = [
+  {
+    id: 'dept-pathology',
+    name: 'Central Phlebotomy Hall',
+    code: 'BLD',
+    category: 'pathology',
+    location: {
+      building: 'New Multi-Storey OPD Building',
+      wing: 'Central Phlebotomy Hall',
+      floor: 'Ground Floor',
+      room: 'Counter 6',
+      directions: 'Ground Floor OPD Hall near entrance, Counter 6 for blood draw and token verification.'
+    },
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, routine hematology',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-biochem',
+    name: 'Central Biochemistry Lab',
+    code: 'BIO',
+    category: 'biochemistry',
+    location: {
+      building: 'Central Laboratory Block',
+      wing: 'Biochemistry Division',
+      floor: '1st Floor',
+      room: 'Room 110',
+      directions: '1st Floor Central Lab Block, follow blue corridor strip to Room 110.'
+    },
+    accentColor: '#D97706',
+    iconName: 'FlaskConical',
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-cardio',
+    name: 'Cardiology Diagnostic Bay',
+    code: 'ECG',
+    category: 'cardiology',
+    location: {
+      building: 'Cardiology & CTVS Wing',
+      wing: 'Cardiac OPD',
+      floor: '2nd Floor',
+      room: 'Room 214',
+      directions: '2nd Floor Cardiology Wing, follow red heart line to ECG Room 214.'
+    },
+    accentColor: '#2563EB',
+    iconName: 'Activity',
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-radiology',
+    name: 'Digital Radiography Unit',
+    code: 'RAD',
+    category: 'radiology',
+    location: {
+      building: 'Radiodiagnosis Block',
+      wing: 'Digital Radiography Unit',
+      floor: 'Ground Floor',
+      room: 'Room 08',
+      directions: 'Ground Floor Radiodiagnosis Block, entrance opposite Casualty, Room 08.'
+    },
+    accentColor: '#7C3AED',
+    iconName: 'ScanLine',
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ultrasound',
+    name: 'Diagnostic Ultrasound Suite',
+    code: 'USG',
+    category: 'ultrasound',
+    location: {
+      building: 'New OPD Building',
+      wing: 'Diagnostic Ultrasound Suite',
+      floor: '1st Floor',
+      room: 'Room 118',
+      directions: '1st Floor OPD Building, next to gynaecological consultation rooms, Room 118.'
+    },
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ophthalmology',
+    name: 'Ophthalmic Diagnostics Clinic',
+    code: 'EYE',
+    category: 'ophthalmology',
+    location: {
+      building: 'New OPD Building',
+      wing: 'Ophthalmic Diagnostics',
+      floor: '3rd Floor',
+      room: 'Room 302',
+      directions: '3rd Floor OPD Building, follow eye icon to OCT Retina Clinic 302.'
+    },
+    accentColor: '#0284C7',
+    iconName: 'Eye',
+    description: 'Optical Coherence Tomography (OCT), automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'Audiology Cabin',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'New OPD Building',
+      wing: 'Audiology Cabin',
+      floor: '2nd Floor',
+      room: 'Room 222',
+      directions: '2nd Floor OPD Building, opposite Dr. Arvind Joshi (Room 205), Room 222.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'Neurology Department Console',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'Super Speciality Wing',
+      wing: 'Neurology Department',
+      floor: '4th Floor',
+      room: 'Room 408',
+      directions: 'Take Super Speciality lift to 4th Floor, Room 408 EEG & EMG console.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS)',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'Spirometry Cabin',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'New OPD Building',
+      wing: 'Chest & TB Clinic',
+      floor: 'Ground Floor',
+      room: 'Room 102',
+      directions: 'Ground Floor OPD Building, near South Gate, Spirometry Cabin 102.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'DEXA Bone Suite',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'Radiodiagnosis Block',
+      wing: 'DEXA Bone Suite',
+      floor: 'Basement 1',
+      room: 'Room B-04',
+      directions: 'Basement 1 Radiodiagnosis Block, next to MRI reception, Room B-04.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'DEXA bone density scan for spine & hip',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  }
+];
+
+const LNJP_DEPARTMENTS: Department[] = [
+  {
+    id: 'dept-pathology',
+    name: 'Main Blood Sample Bay',
+    code: 'BLD',
+    category: 'pathology',
+    location: {
+      building: 'Main OPD Block',
+      wing: 'Central Phlebotomy Bay',
+      floor: 'Ground Floor',
+      room: 'Room 11',
+      directions: 'From Dr. Meenakshi Sundaram (Chamber 14), walk to Ground Floor Main OPD, near registration counter, Room 11 Blood Sample Bay.'
+    },
+    accentColor: '#DC2626',
+    iconName: 'Droplet',
+    description: 'Blood sample collection, CBC, routine hematology',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-biochem',
+    name: 'Central Biochemistry Section',
+    code: 'BIO',
+    category: 'biochemistry',
+    location: {
+      building: 'Central Clinical Lab Building',
+      wing: 'Biochemistry Section',
+      floor: '1st Floor',
+      room: 'Room 105',
+      directions: '1st Floor Clinical Lab Building, follow green corridor to Room 105.'
+    },
+    accentColor: '#D97706',
+    iconName: 'FlaskConical',
+    description: 'Fasting glucose, HbA1c, Lipid profile, renal panel',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-cardio',
+    name: 'Cardiac Diagnostic Bay',
+    code: 'ECG',
+    category: 'cardiology',
+    location: {
+      building: 'Main OPD Block',
+      wing: 'Cardiac Diagnostic Bay',
+      floor: '1st Floor',
+      room: 'Room 122',
+      directions: '1st Floor OPD Block, same corridor as Dr. Meenakshi Sundaram, Room 122.'
+    },
+    accentColor: '#2563EB',
+    iconName: 'Activity',
+    description: '12-lead digital ECG, cardiac rhythm evaluation',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-radiology',
+    name: 'Digital X-Ray Section',
+    code: 'RAD',
+    category: 'radiology',
+    location: {
+      building: 'Trauma & Emergency Imaging Block',
+      wing: 'Digital X-Ray Section',
+      floor: 'Ground Floor',
+      room: 'Room 04',
+      directions: 'Ground Floor Imaging Block, follow yellow signage to Room 04.'
+    },
+    accentColor: '#7C3AED',
+    iconName: 'ScanLine',
+    description: 'Low-dose digital X-Ray PA/Lateral views',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ultrasound',
+    name: 'Sonography Wing',
+    code: 'USG',
+    category: 'ultrasound',
+    location: {
+      building: 'Main OPD Block',
+      wing: 'Sonography Wing',
+      floor: 'Ground Floor',
+      room: 'Room 16',
+      directions: 'Ground Floor OPD Block, adjacent to Gynae OPD, Room 16.'
+    },
+    accentColor: '#0D9488',
+    iconName: 'Waves',
+    description: 'Whole abdomen, pelvic, and Doppler sonography',
+    activeMachines: 2,
+    totalMachines: 2,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ophthalmology',
+    name: 'Guru Nanak Eye Centre (GNEC)',
+    code: 'EYE',
+    category: 'ophthalmology',
+    location: {
+      building: 'Guru Nanak Eye Centre (GNEC)',
+      wing: 'Retina & OCT Diagnostic Unit',
+      floor: '1st Floor',
+      room: 'Room 110',
+      directions: 'Walk to Guru Nanak Eye Centre adjacent block, 1st Floor, Room 110.'
+    },
+    accentColor: '#0284C7',
+    iconName: 'Eye',
+    description: 'Optical Coherence Tomography (OCT), automated visual refraction',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-ent',
+    name: 'Audiology & Speech Clinic',
+    code: 'ENT',
+    category: 'ent',
+    location: {
+      building: 'Main OPD Block',
+      wing: 'Audiology & Speech Clinic',
+      floor: '2nd Floor',
+      room: 'Room 208',
+      directions: '2nd Floor Main OPD, Soundproof Testing Chamber 208.'
+    },
+    accentColor: '#D97706',
+    iconName: 'Volume2',
+    description: 'Pure Tone Audiometry (PTA), Tympanometry and acoustic reflex evaluation',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-neurology',
+    name: 'LNJP / G.B. Pant Neuro Lab',
+    code: 'NEU',
+    category: 'neurology',
+    location: {
+      building: 'G.B. Pant / LNJP Neuro Wing',
+      wing: 'Neurophysiology Lab',
+      floor: '2nd Floor',
+      room: 'Room 215',
+      directions: '2nd Floor Neuro Wing, enter Room 215 for digital EEG and nerve studies.'
+    },
+    accentColor: '#9333EA',
+    iconName: 'Brain',
+    description: '32-channel digital EEG, nerve conduction studies (NCS)',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-pulmonary',
+    name: 'PFT Suite',
+    code: 'PFT',
+    category: 'pulmonary',
+    location: {
+      building: 'Chest Clinic & Respiratory Unit',
+      wing: 'PFT Suite',
+      floor: 'Ground Floor',
+      room: 'Room 108',
+      directions: 'Ground Floor Chest Clinic, Room 108 Spirometry and allergen testing.'
+    },
+    accentColor: '#059669',
+    iconName: 'Wind',
+    description: 'Digital spirometry, flow-volume loops',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  },
+  {
+    id: 'dept-orthopedics',
+    name: 'Bone Mineral Densitometry',
+    code: 'DEX',
+    category: 'orthopedics',
+    location: {
+      building: 'Orthopaedic Centre',
+      wing: 'Bone Mineral Densitometry',
+      floor: 'Basement 1',
+      room: 'Room B-02',
+      directions: 'Basement 1 Orthopaedic Centre, Room B-02 adjacent to Plaster Room.'
+    },
+    accentColor: '#E11D48',
+    iconName: 'Bone',
+    description: 'DEXA bone density scan for spine & hip',
+    activeMachines: 1,
+    totalMachines: 1,
+    availabilityStatus: 'available'
+  }
+];
+
+export const HOSPITAL_DEPARTMENTS_MAP: Record<string, Department[]> = {
+  'MAX-01': INITIAL_DEPARTMENTS,
+  'H001': INITIAL_DEPARTMENTS,
+  'APOLLO-02': APOLLO_DEPARTMENTS,
+  'H002': APOLLO_DEPARTMENTS,
+  'AIIMS-03': AIIMS_DEPARTMENTS,
+  'H003': AIIMS_DEPARTMENTS,
+  'SAFDARJUNG-04': SAFDARJUNG_DEPARTMENTS,
+  'H004': SAFDARJUNG_DEPARTMENTS,
+  'RML-05': RML_DEPARTMENTS,
+  'H005': RML_DEPARTMENTS,
+  'LNJP-06': LNJP_DEPARTMENTS,
+  'H006': LNJP_DEPARTMENTS
+};
+
+export function getDepartmentsForHospital(query: string): Department[] {
+  if (!query) return INITIAL_DEPARTMENTS;
+  const hosp = findHospitalByQuery(query);
+  const code = (hosp ? hosp.code : query).toUpperCase().replace(/\s+/g, '-');
+  if (HOSPITAL_DEPARTMENTS_MAP[code]) {
+    return HOSPITAL_DEPARTMENTS_MAP[code];
+  }
+  const id = (hosp ? hosp.id : query).toUpperCase();
+  if (HOSPITAL_DEPARTMENTS_MAP[id]) {
+    return HOSPITAL_DEPARTMENTS_MAP[id];
+  }
+  return INITIAL_DEPARTMENTS;
+}
+
 export const INITIAL_TESTS: DiagnosticTest[] = [
+  {
+    id: 'test-fbs',
+    code: 'BIO-101',
+    name: 'Blood Sugar Fasting',
+    technicalName: 'Fasting Blood Glucose (FBG)',
+    departmentId: 'dept-biochem',
+    averageDurationMinutes: 6,
+    requiresFasting: true,
+    requiresFullBladder: false,
+    preparationNotes: 'Empty stomach / Fasting sample (8-10 hours overnight fasting required)',
+    standardPrice: 150,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Fasting Blood Glucose', unit: 'mg/dL', normalRange: '70 - 99', defaultValue: '142' }
+    ]
+  },
   {
     id: 'test-cbc',
     code: 'BLD-101',
-    name: 'Complete Blood Count (CBC / Hemogram)',
+    name: 'Blood Collection',
+    technicalName: 'Complete Blood Count (CBC)',
     departmentId: 'dept-pathology',
     averageDurationMinutes: 6,
     requiresFasting: false,
-    preparationNotes: 'No special dietary restriction needed. Rest 5 mins before draw.',
-    standardPrice: 450
-  },
-  {
-    id: 'test-fbs',
-    code: 'BIO-201',
-    name: 'Fasting Blood Sugar & HbA1c Profile',
-    departmentId: 'dept-biochem',
-    averageDurationMinutes: 8,
-    requiresFasting: true,
-    preparationNotes: 'Mandatory 10-12 hours overnight fasting. Water intake allowed.',
-    standardPrice: 650
+    requiresFullBladder: false,
+    preparationNotes: 'No fasting required. Stay relaxed and hydrated.',
+    standardPrice: 350,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Hemoglobin (Hb)', unit: 'g/dL', normalRange: '13.0 - 17.0', defaultValue: '13.5' },
+      { label: 'Total Leukocyte Count (TLC)', unit: '/uL', normalRange: '4000 - 11000', defaultValue: '7600' },
+      { label: 'Platelet Count', unit: '/uL', normalRange: '150000 - 450000', defaultValue: '240000' }
+    ]
   },
   {
     id: 'test-ecg',
-    code: 'ECG-301',
-    name: '12-Lead Resting Electrocardiogram (ECG)',
+    code: 'ECG-201',
+    name: 'Heart Rhythm',
+    technicalName: '12-Lead Electrocardiogram (ECG)',
     departmentId: 'dept-cardio',
-    averageDurationMinutes: 7,
+    averageDurationMinutes: 5,
     requiresFasting: false,
-    preparationNotes: 'Wear loose clothing around chest and ankles. Relax breathing.',
-    standardPrice: 500
+    requiresFullBladder: false,
+    preparationNotes: 'Rest quietly 5 minutes before electrode placement. Remove metal objects.',
+    standardPrice: 300,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Heart Rate', unit: 'bpm', normalRange: '60 - 100', defaultValue: '76' },
+      { label: 'Rhythm', unit: '', normalRange: 'Sinus Rhythm', defaultValue: 'Sinus Rhythm' },
+      { label: 'PR Interval', unit: 'ms', normalRange: '120 - 200', defaultValue: '160' }
+    ]
   },
   {
     id: 'test-xray-chest',
-    code: 'RAD-401',
-    name: 'Chest X-Ray (PA View - Digital)',
+    code: 'RAD-301',
+    name: 'Chest X-Ray',
+    technicalName: 'Digital Chest Radiography (PA View)',
     departmentId: 'dept-radiology',
-    averageDurationMinutes: 9,
+    averageDurationMinutes: 7,
     requiresFasting: false,
-    preparationNotes: 'Remove all metallic jewelry, necklaces, and wired garments.',
-    standardPrice: 750
+    requiresFullBladder: false,
+    preparationNotes: 'Remove neck chains, metallic ornaments, and shirts with metal buttons.',
+    standardPrice: 450,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Lung Fields', unit: '', normalRange: 'Clear', defaultValue: 'Clear, normal bronchovascular markings' },
+      { label: 'Cardiothoracic Ratio', unit: '', normalRange: '< 0.50', defaultValue: '0.46 (Normal)' }
+    ]
   },
   {
     id: 'test-usg-abdomen',
-    code: 'USG-501',
-    name: 'Whole Abdomen Ultrasound Scan',
+    code: 'USG-401',
+    name: 'Abdominal Ultrasound',
+    technicalName: 'Whole Abdomen Ultrasonography',
     departmentId: 'dept-ultrasound',
-    averageDurationMinutes: 14,
-    requiresFasting: true,
+    averageDurationMinutes: 12,
+    requiresFasting: false,
     requiresFullBladder: true,
-    preparationNotes: '4 hours fasting + Drink 1 Litre water 45 mins prior to scan (full bladder).',
-    standardPrice: 1600
-  },
-  {
-    id: 'test-oct-retina',
-    code: 'EYE-601',
-    name: 'Digital Retinal Fundus & OCT Scan',
-    departmentId: 'dept-ophthalmology',
-    averageDurationMinutes: 10,
-    requiresFasting: false,
-    preparationNotes: 'Pupillary dilation may cause blurred vision for 2-3 hours.',
-    standardPrice: 1200
-  },
-  {
-    id: 'test-ppbs',
-    code: 'BIO-202',
-    name: 'Post-Prandial Blood Sugar (PPBS)',
-    departmentId: 'dept-biochem',
-    averageDurationMinutes: 7,
-    requiresFasting: false,
-    preparationNotes: 'Must be drawn exactly 2 hours post-meal.',
-    prerequisites: ['test-fbs'],
-    standardPrice: 380
-  },
-  {
-    id: 'test-ct-contrast',
-    code: 'RAD-402',
-    name: 'Contrast-Enhanced Chest CT Scan',
-    departmentId: 'dept-radiology',
-    averageDurationMinutes: 15,
-    requiresFasting: true,
-    preparationNotes: 'Requires verified normal renal profile / CBC before IV contrast administration.',
-    prerequisites: ['test-cbc'],
-    standardPrice: 3200
+    preparationNotes: 'Drink 3-4 glasses of water 45 minutes prior. Hold urine for full bladder visualization.',
+    standardPrice: 900,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Liver & Gallbladder', unit: '', normalRange: 'Normal', defaultValue: 'Normal liver size and parenchymal echo' },
+      { label: 'Urinary Bladder', unit: '', normalRange: 'Distended', defaultValue: 'Well distended, normal wall thickness' }
+    ]
   },
   {
     id: 'test-lipid',
-    code: 'BIO-203',
-    name: 'Comprehensive Lipid Profile (Cholesterol, HDL, LDL, Triglycerides)',
+    code: 'BIO-102',
+    name: 'Lipid Profile',
+    technicalName: 'Fasting Lipid Panel',
     departmentId: 'dept-biochem',
     averageDurationMinutes: 7,
     requiresFasting: true,
-    preparationNotes: '10-12 hours overnight fasting required. Water intake allowed.',
-    standardPrice: 750
+    requiresFullBladder: false,
+    preparationNotes: '10-12 hours overnight fasting mandatory. Only water allowed.',
+    standardPrice: 650,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Total Cholesterol', unit: 'mg/dL', normalRange: '< 200', defaultValue: '185' },
+      { label: 'Triglycerides', unit: 'mg/dL', normalRange: '< 150', defaultValue: '140' },
+      { label: 'HDL Cholesterol', unit: 'mg/dL', normalRange: '> 40', defaultValue: '44' },
+      { label: 'LDL Cholesterol', unit: 'mg/dL', normalRange: '< 100', defaultValue: '112' }
+    ]
+  },
+  {
+    id: 'test-ppbs',
+    code: 'BIO-103',
+    name: 'Blood Sugar Post-Meal (PP)',
+    technicalName: 'Post-Prandial Blood Glucose (PPBS)',
+    departmentId: 'dept-biochem',
+    averageDurationMinutes: 6,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Blood sample exactly 2 hours after starting breakfast/meal.',
+    prerequisites: ['test-fbs'],
+    standardPrice: 150,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Post-Meal Glucose (2hr)', unit: 'mg/dL', normalRange: '< 140', defaultValue: '138' }
+    ]
+  },
+  {
+    id: 'test-urine',
+    code: 'BLD-102',
+    name: 'Urine Routine',
+    technicalName: 'Urinalysis & Physical-Chemical Microscopy',
+    departmentId: 'dept-pathology',
+    averageDurationMinutes: 5,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Clean-catch midstream urine sample in sterile container provided.',
+    standardPrice: 150,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Urine Protein', unit: '', normalRange: 'Nil', defaultValue: 'Nil' },
+      { label: 'Urine Sugar', unit: '', normalRange: 'Nil', defaultValue: 'Nil' },
+      { label: 'Pus Cells', unit: '/hpf', normalRange: '0 - 5', defaultValue: '1 - 2' }
+    ]
+  },
+  {
+    id: 'test-retina-oct',
+    code: 'EYE-101',
+    name: 'Retinal OCT Scan',
+    technicalName: 'Optical Coherence Tomography (Macula & Optic Disc)',
+    departmentId: 'dept-ophthalmology',
+    averageDurationMinutes: 10,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Pupil dilation drops may be administered 20 mins prior. Temporary blurred vision expected.',
+    standardPrice: 1200,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Central Foveal Thickness', unit: 'µm', normalRange: '220 - 280', defaultValue: '242' },
+      { label: 'Retinal Nerve Fiber Layer (RNFL)', unit: 'µm', normalRange: '85 - 110', defaultValue: '98' }
+    ]
+  },
+  {
+    id: 'test-visual-acuity',
+    code: 'EYE-102',
+    name: 'Visual Acuity & Refraction',
+    technicalName: 'Automated Computerised Refraction & Slit Lamp Exam',
+    departmentId: 'dept-ophthalmology',
+    averageDurationMinutes: 8,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Bring existing prescription spectacle glasses or contact lenses for baseline comparison.',
+    standardPrice: 350,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Right Eye (OD) Visual Acuity', unit: '', normalRange: '6/6', defaultValue: '6/9' },
+      { label: 'Left Eye (OS) Visual Acuity', unit: '', normalRange: '6/6', defaultValue: '6/6' },
+      { label: 'Intraocular Pressure (IOP)', unit: 'mmHg', normalRange: '10 - 21', defaultValue: '15' }
+    ]
+  },
+  {
+    id: 'test-audiometry',
+    code: 'ENT-101',
+    name: 'Pure Tone Audiometry',
+    technicalName: 'Pure Tone Audiometry (PTA) Air & Bone Conduction',
+    departmentId: 'dept-ent',
+    averageDurationMinutes: 15,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Conducted in a soundproof booth. Avoid loud headphone or factory noise exposure 14 hours prior.',
+    standardPrice: 650,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Right Ear PTA Average', unit: 'dB HL', normalRange: '< 25 (Normal)', defaultValue: '18 dB HL' },
+      { label: 'Left Ear PTA Average', unit: 'dB HL', normalRange: '< 25 (Normal)', defaultValue: '22 dB HL' }
+    ]
+  },
+  {
+    id: 'test-tympanometry',
+    code: 'ENT-102',
+    name: 'Tympanometry & Reflex',
+    technicalName: 'Acoustic Immittance & Middle Ear Compliance',
+    departmentId: 'dept-ent',
+    averageDurationMinutes: 7,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Ear canals should be clear of wax impaction. Test is quick and painless.',
+    standardPrice: 450,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Tympanogram Peak Pressure', unit: 'daPa', normalRange: '-100 to +50', defaultValue: '-15 daPa (Type A)' },
+      { label: 'Middle Ear Compliance', unit: 'mL', normalRange: '0.3 - 1.6', defaultValue: '0.8 mL' }
+    ]
+  },
+  {
+    id: 'test-eeg',
+    code: 'NEU-101',
+    name: '32-Channel Digital EEG',
+    technicalName: '32-Channel Electroencephalogram with Hyperventilation',
+    departmentId: 'dept-neurology',
+    averageDurationMinutes: 25,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Wash scalp and hair with plain shampoo; do not apply hair oil, gels, condition sprays, or styling agents.',
+    standardPrice: 1800,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Background Alpha Rhythm', unit: 'Hz', normalRange: '8.5 - 12.0', defaultValue: '10.2 Hz, symmetric' },
+      { label: 'Epileptiform Discharges', unit: '', normalRange: 'Absent', defaultValue: 'Absent / Normal awake tracing' }
+    ]
+  },
+  {
+    id: 'test-ncs',
+    code: 'NEU-102',
+    name: 'Nerve Conduction Study',
+    technicalName: 'Electrophysiological Nerve Conduction Velocity (NCV/NCS)',
+    departmentId: 'dept-neurology',
+    averageDurationMinutes: 20,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Keep limbs warm. Do not apply hand or body lotions/moisturizers on the test day.',
+    standardPrice: 1600,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Median Motor NCV', unit: 'm/s', normalRange: '> 50.0', defaultValue: '54.5 m/s' },
+      { label: 'Peroneal Motor NCV', unit: 'm/s', normalRange: '> 42.0', defaultValue: '46.2 m/s' }
+    ]
+  },
+  {
+    id: 'test-spirometry',
+    code: 'PFT-101',
+    name: 'Pulmonary Function Test',
+    technicalName: 'Pre & Post Bronchodilator Digital Spirometry',
+    departmentId: 'dept-pulmonary',
+    averageDurationMinutes: 12,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Do not smoke for 1 hour prior. Avoid large heavy meals 2 hours prior. Wear loose comfortable clothing.',
+    standardPrice: 850,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'FEV1 / FVC Ratio', unit: '%', normalRange: '> 75%', defaultValue: '81.4%' },
+      { label: 'FEV1 % Predicted', unit: '%', normalRange: '> 80%', defaultValue: '89.2%' }
+    ]
+  },
+  {
+    id: 'test-dexa',
+    code: 'DEX-101',
+    name: 'DEXA Bone Mineral Scan',
+    technicalName: 'Dual-Energy X-Ray Absorptiometry (Spine & Hip)',
+    departmentId: 'dept-orthopedics',
+    averageDurationMinutes: 15,
+    requiresFasting: false,
+    requiresFullBladder: false,
+    preparationNotes: 'Do not take calcium supplements or multivitamins on test morning. Avoid clothing with metallic zippers or hooks.',
+    standardPrice: 1500,
+    defaultPriority: 'normal',
+    metricTemplates: [
+      { label: 'Lumbar Spine (L1-L4) T-Score', unit: '', normalRange: '> -1.0 (Normal)', defaultValue: '-0.8 (Normal BMD)' },
+      { label: 'Femoral Neck T-Score', unit: '', normalRange: '> -1.0 (Normal)', defaultValue: '-1.1 (Mild Osteopenia)' }
+    ]
   }
 ];
 
 export const INITIAL_COUNTERS: Counter[] = [
   {
-    id: 'counter-bld-1',
+    id: 'counter-phleb-1',
     code: 'B-01',
     name: 'Phlebotomy Bay Alpha',
     departmentId: 'dept-pathology',
-    technicianName: 'Sumantha Nair (Sr. Tech)',
+    roomNo: 'Room 12',
+    technicianName: 'Sunil Kumar',
     status: 'active',
-    currentServingTokenId: 'token-rush-bld-01',
-    currentPatientId: 'patient-walkin-01',
-    servedCountToday: 38,
+    servedCountToday: 8,
     averageServiceMinutes: 5.5
-  },
-  {
-    id: 'counter-bld-2',
-    code: 'B-02',
-    name: 'Phlebotomy Bay Beta (Express)',
-    departmentId: 'dept-pathology',
-    technicianName: 'Ramesh Kulkarni',
-    status: 'active',
-    currentServingTokenId: 'token-rush-bld-02',
-    currentPatientId: 'patient-walkin-02',
-    servedCountToday: 29,
-    averageServiceMinutes: 5.0
   },
   {
     id: 'counter-bio-1',
-    code: 'M-01',
-    name: 'Metabolic & Sugar Desk',
+    code: 'BIO-01',
+    name: 'Biochemistry Counter 1',
     departmentId: 'dept-biochem',
-    technicianName: 'Farhana Sheikh',
+    roomNo: 'Room 14',
+    technicianName: 'Anita Sen',
     status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 22,
-    averageServiceMinutes: 7.0
-  },
-  {
-    id: 'counter-ecg-1',
-    code: 'C-01',
-    name: 'ECG Station 1 (Rapid)',
-    departmentId: 'dept-cardio',
-    technicianName: 'Sister Mary Joseph',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 18,
-    averageServiceMinutes: 6.5
-  },
-  {
-    id: 'counter-rad-1',
-    code: 'X-01',
-    name: 'Radiology Bay 1',
-    departmentId: 'dept-radiology',
-    technicianName: 'Arun Verma (Rad Tech)',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 15,
-    averageServiceMinutes: 8.0
-  },
-  {
-    id: 'counter-usg-1',
-    code: 'U-01',
-    name: 'Ultrasound Scan Room A',
-    departmentId: 'dept-ultrasound',
-    technicianName: 'Dr. Sonali Mehta (Sonologist)',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 9,
-    averageServiceMinutes: 13.0
-  },
-  {
-    id: 'counter-eye-1',
-    code: 'E-01',
-    name: 'Ophthalmic Laser Room',
-    departmentId: 'dept-ophthalmology',
-    technicianName: 'Gaurav Sen',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 11,
-    averageServiceMinutes: 9.0
-  }
-];
-
-// Branch Counters for Multi-Hospital Tenancy (East Diagnostic Plaza & Dr. Sarah's Single-Doctor Clinic)
-export const BRANCH_COUNTERS: Counter[] = [
-  // East Wing Diagnostic Clinic Counters
-  {
-    id: 'counter-east-bld-1',
-    hospitalId: 'hosp-east',
-    code: 'E-BLD',
-    name: 'Phlebotomy Desk East',
-    departmentId: 'dept-pathology',
-    technicianName: 'Sumantha Nair',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 14,
-    averageServiceMinutes: 5.0
-  },
-  {
-    id: 'counter-east-bio-1',
-    hospitalId: 'hosp-east',
-    code: 'E-BIO',
-    name: 'Fasting Metabolic Bay',
-    departmentId: 'dept-biochem',
-    technicianName: 'Farhana Sheikh',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 12,
-    averageServiceMinutes: 6.5
-  },
-  {
-    id: 'counter-east-ecg-1',
-    hospitalId: 'hosp-east',
-    code: 'E-ECG',
-    name: 'Cardiac Rhythm Station',
-    departmentId: 'dept-cardio',
-    technicianName: 'Sister Mary Joseph',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 10,
+    servedCountToday: 6,
     averageServiceMinutes: 6.0
   },
   {
-    id: 'counter-east-rad-1',
-    hospitalId: 'hosp-east',
-    code: 'E-RAD',
-    name: 'Digital X-Ray Bay East',
-    departmentId: 'dept-radiology',
-    technicianName: 'Arun Verma',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 8,
-    averageServiceMinutes: 7.5
-  },
-  {
-    id: 'counter-east-usg-1',
-    hospitalId: 'hosp-east',
-    code: 'E-USG',
-    name: 'Sonography Suite East',
-    departmentId: 'dept-ultrasound',
-    technicianName: 'Dr. Neha Sen',
-    status: 'active',
-    servedCountToday: 8,
-    averageServiceMinutes: 12.0
-  },
-  {
-    id: 'counter-east-eye-1',
-    hospitalId: 'hosp-east',
-    code: 'E-EYE',
-    name: 'Eye & Retina Suite East',
-    departmentId: 'dept-ophthalmology',
-    technicianName: 'Gaurav Sen',
-    status: 'active',
-    servedCountToday: 6,
-    averageServiceMinutes: 8.0
-  },
-  // Dr. Sarah's Family Clinic (Single Doctor Practice Attached Desks)
-  {
-    id: 'counter-clinic-bld',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-BLD',
-    name: 'Attached Blood Collection Desk',
-    departmentId: 'dept-pathology',
-    technicianName: 'Sister Anjali (Clinic Nurse)',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 9,
-    averageServiceMinutes: 4.5
-  },
-  {
-    id: 'counter-clinic-ecg',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-ECG',
-    name: 'Attached ECG Rapid Desk',
+    id: 'counter-ecg-1',
+    code: 'E-01',
+    name: 'Cardiac Rhythm Station 1',
     departmentId: 'dept-cardio',
-    technicianName: 'Sister Anjali (Clinic Nurse)',
-    status: 'active',
-    currentServingTokenId: undefined,
-    currentPatientId: undefined,
-    servedCountToday: 6,
-    averageServiceMinutes: 5.5
-  },
-  {
-    id: 'counter-clinic-usg',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-USG',
-    name: 'Attached Ultrasound Desk',
-    departmentId: 'dept-ultrasound',
-    technicianName: 'Dr. Sarah Khan',
-    status: 'active',
-    servedCountToday: 3,
-    averageServiceMinutes: 10.0
-  },
-  {
-    id: 'counter-clinic-rad',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-RAD',
-    name: 'Attached Digital X-Ray Bay',
-    departmentId: 'dept-radiology',
-    technicianName: 'Sister Anjali',
-    status: 'active',
-    servedCountToday: 4,
-    averageServiceMinutes: 7.0
-  },
-  {
-    id: 'counter-clinic-bio',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-BIO',
-    name: 'Attached Fasting Metabolic Desk',
-    departmentId: 'dept-biochem',
-    technicianName: 'Sister Anjali',
+    roomNo: 'Room 04',
+    technicianName: 'Vikram Das',
     status: 'active',
     servedCountToday: 5,
     averageServiceMinutes: 5.0
   },
   {
-    id: 'counter-clinic-eye',
-    hospitalId: 'hosp-clinic',
-    code: 'CLN-EYE',
-    name: 'Attached Eye Refraction Desk',
+    id: 'counter-xray-1',
+    code: 'X-01',
+    name: 'Digital X-Ray Console',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room 08',
+    technicianName: 'Pooja Mehta',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 7.0
+  },
+  {
+    id: 'counter-usg-1',
+    code: 'U-01',
+    name: 'Sonography Console A',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 10',
+    technicianName: 'Dr. K. Sharma',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-eye-1',
+    code: 'EYE-01',
+    name: 'Ophthalmic OCT & Refraction Desk',
     departmentId: 'dept-ophthalmology',
-    technicianName: 'Dr. Sarah Khan',
+    roomNo: 'Room 18',
+    technicianName: 'Dr. Vivek Nair',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 9.0
+  },
+  {
+    id: 'counter-ent-1',
+    code: 'ENT-01',
+    name: 'Audiometric Soundproof Chamber',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 20',
+    technicianName: 'Megha Sen',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 11.0
+  },
+  {
+    id: 'counter-neu-1',
+    code: 'NEU-01',
+    name: 'Neuro-Physiology Console 1',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 24',
+    technicianName: 'Rajeev Pillai',
     status: 'active',
     servedCountToday: 2,
-    averageServiceMinutes: 6.0
+    averageServiceMinutes: 22.0
+  },
+  {
+    id: 'counter-pft-1',
+    code: 'PFT-01',
+    name: 'Pulmonary Spirometry Cabin',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 16',
+    technicianName: 'Farhan Ali',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 10.0
+  },
+  {
+    id: 'counter-dex-1',
+    code: 'DEX-01',
+    name: 'DEXA Bone Densitometer A',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room 22',
+    technicianName: 'Geeta Kumari',
+    status: 'active',
+    servedCountToday: 2,
+    averageServiceMinutes: 15.0
   }
 ];
 
-export const QCARE_DEMO_COUNTERS: Counter[] = [
+const SAFDARJUNG_COUNTERS: Counter[] = [
   {
-    id: 'counter-qdemo-ecg-1',
-    hospitalId: 'qcare-demo',
-    code: 'ECG-01',
-    name: 'ECG Station (Cardiac Rhythm Suite)',
-    departmentId: 'dept-cardio',
-    technicianName: 'Rohan Gupta (Cardiac Tech)',
-    status: 'active',
-    servedCountToday: 18,
-    averageServiceMinutes: 8.0 // Requirement 35: ECG 8 minutes
-  },
-  {
-    id: 'counter-qdemo-bld-1',
-    hospitalId: 'qcare-demo',
-    code: 'BLD-01',
-    name: 'Phlebotomy Bay Alpha',
+    id: 'counter-phleb-sjh',
+    code: 'B-01',
+    name: 'Central Phlebotomy Counter 1',
     departmentId: 'dept-pathology',
-    technicianName: 'Sumanth Nair (Sr. Phlebotomist)',
+    roomNo: 'Room 18',
+    technicianName: 'Ramesh Chander (Lab Asst)',
     status: 'active',
-    servedCountToday: 32,
-    averageServiceMinutes: 4.0 // Requirement 35: Blood Test 4 minutes
+    servedCountToday: 12,
+    averageServiceMinutes: 4.5
   },
   {
-    id: 'counter-qdemo-bld-2',
-    hospitalId: 'qcare-demo',
-    code: 'BLD-02',
-    name: 'Phlebotomy Bay Beta',
-    departmentId: 'dept-pathology',
-    technicianName: 'Priya Kulkarni',
-    status: 'active',
-    servedCountToday: 28,
-    averageServiceMinutes: 4.0
-  },
-  {
-    id: 'counter-qdemo-usg-1',
-    hospitalId: 'qcare-demo',
-    code: 'USG-01',
-    name: 'Sonography Suite Alpha',
-    departmentId: 'dept-ultrasound',
-    technicianName: 'Dr. Neha Sen (USG Tech)',
-    status: 'active',
-    servedCountToday: 14,
-    averageServiceMinutes: 12.0 // Requirement 35: Ultrasound 12 minutes
-  },
-  {
-    id: 'counter-qdemo-xray-1',
-    hospitalId: 'qcare-demo',
-    code: 'RAD-01',
-    name: 'Digital X-Ray Vault 1',
-    departmentId: 'dept-radiology',
-    technicianName: 'Arun Verma (Rad Tech)',
-    status: 'active',
-    servedCountToday: 22,
-    averageServiceMinutes: 7.0 // Requirement 35: X-Ray 7 minutes
-  },
-  {
-    id: 'counter-qdemo-bio-1',
-    hospitalId: 'qcare-demo',
+    id: 'counter-bio-sjh',
     code: 'BIO-01',
-    name: 'Biochemistry & Fasting Sugar Desk',
+    name: 'Biochemistry Intake Desk',
     departmentId: 'dept-biochem',
-    technicianName: 'Farhana Sheikh (Sr. Biochemist)',
+    roomNo: 'Room 114',
+    technicianName: 'Dr. Neeraj Bansal',
     status: 'active',
-    servedCountToday: 24,
+    servedCountToday: 9,
+    averageServiceMinutes: 5.5
+  },
+  {
+    id: 'counter-ecg-sjh',
+    code: 'E-01',
+    name: 'SSB Cardiac Rhythm Station',
+    departmentId: 'dept-cardio',
+    roomNo: 'Room 208',
+    technicianName: 'Praveen Yadav',
+    status: 'active',
+    servedCountToday: 7,
     averageServiceMinutes: 5.0
   },
   {
-    id: 'counter-qdemo-eye-1',
-    hospitalId: 'qcare-demo',
-    code: 'EYE-01',
-    name: 'Ophthalmic OCT & Retina Desk',
-    departmentId: 'dept-ophthalmology',
-    technicianName: 'Gaurav Sen (Optometrist)',
+    id: 'counter-xray-sjh',
+    code: 'X-01',
+    name: 'Trauma Digital Radiography Console',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room 06',
+    technicianName: 'Sunita Meena (Radiographer)',
     status: 'active',
-    servedCountToday: 12,
+    servedCountToday: 8,
+    averageServiceMinutes: 6.5
+  },
+  {
+    id: 'counter-usg-sjh',
+    code: 'U-01',
+    name: 'Doppler Sonography Suite 1',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 112',
+    technicianName: 'Dr. Aarti Rawat',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-eye-sjh',
+    code: 'EYE-01',
+    name: 'Eye OPD OCT Desk',
+    departmentId: 'dept-ophthalmology',
+    roomNo: 'Room 210',
+    technicianName: 'Satish Tyagi',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 8.5
+  },
+  {
+    id: 'counter-ent-sjh',
+    code: 'ENT-01',
+    name: 'Audiology Sound Cabin',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 304',
+    technicianName: 'Kavita Mathur',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-neu-sjh',
+    code: 'NEU-01',
+    name: 'SSB Neuro Console',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 316',
+    technicianName: 'Deepak Sharma',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 20.0
+  },
+  {
+    id: 'counter-pft-sjh',
+    code: 'PFT-01',
+    name: 'Respiratory Spirometry Unit',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 104',
+    technicianName: 'Mohd. Imran',
+    status: 'active',
+    servedCountToday: 6,
+    averageServiceMinutes: 9.0
+  },
+  {
+    id: 'counter-dex-sjh',
+    code: 'DEX-01',
+    name: 'Trauma Bone Mineral Unit',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room B-06',
+    technicianName: 'Vikas Kumar',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 14.0
+  }
+];
+
+const AIIMS_COUNTERS: Counter[] = [
+  {
+    id: 'counter-phleb-aiims',
+    code: 'B-01',
+    name: 'RAK Central Sample Collection Counter',
+    departmentId: 'dept-pathology',
+    roomNo: 'Room 15',
+    technicianName: 'Harish Rawat',
+    status: 'active',
+    servedCountToday: 15,
+    averageServiceMinutes: 4.0
+  },
+  {
+    id: 'counter-bio-aiims',
+    code: 'BIO-01',
+    name: 'Biochemistry Routine Counter',
+    departmentId: 'dept-biochem',
+    roomNo: 'Room 22',
+    technicianName: 'Dr. S. K. Jain',
+    status: 'active',
+    servedCountToday: 11,
+    averageServiceMinutes: 5.0
+  },
+  {
+    id: 'counter-ecg-aiims',
+    code: 'E-01',
+    name: 'Cardiology OPD ECG Bay',
+    departmentId: 'dept-cardio',
+    roomNo: 'Room 108',
+    technicianName: 'Manoj Tiwari',
+    status: 'active',
+    servedCountToday: 9,
+    averageServiceMinutes: 4.5
+  },
+  {
+    id: 'counter-xray-aiims',
+    code: 'X-01',
+    name: 'Ambedkar Block Digital X-Ray',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room 05',
+    technicianName: 'Preeti Deshmukh',
+    status: 'active',
+    servedCountToday: 10,
+    averageServiceMinutes: 6.0
+  },
+  {
+    id: 'counter-usg-aiims',
+    code: 'U-01',
+    name: 'RAK Sonography Console',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 19',
+    technicianName: 'Dr. R. K. Goel',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 11.0
+  },
+  {
+    id: 'counter-eye-aiims',
+    code: 'EYE-01',
+    name: 'RPC Retina Imaging Station',
+    departmentId: 'dept-ophthalmology',
+    roomNo: 'Room 102',
+    technicianName: 'Alok Pandey',
+    status: 'active',
+    servedCountToday: 6,
     averageServiceMinutes: 8.0
+  },
+  {
+    id: 'counter-ent-aiims',
+    code: 'ENT-01',
+    name: 'Speech & Hearing Audiometry Booth',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 212',
+    technicianName: 'Vandana Rao',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 13.0
+  },
+  {
+    id: 'counter-neu-aiims',
+    code: 'NEU-01',
+    name: 'NSC Neurophysiology Console',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 118',
+    technicianName: 'Subhashish Roy',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 20.0
+  },
+  {
+    id: 'counter-pft-aiims',
+    code: 'PFT-01',
+    name: 'Pulmonary Function Station',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 14',
+    technicianName: 'Devender Negi',
+    status: 'active',
+    servedCountToday: 7,
+    averageServiceMinutes: 9.5
+  },
+  {
+    id: 'counter-dex-aiims',
+    code: 'DEX-01',
+    name: 'Ambedkar Block Bone Density Unit',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room B-02',
+    technicianName: 'Sanjay Mishra',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 15.0
   }
 ];
 
-export const ALL_INITIAL_COUNTERS: Counter[] = [...QCARE_DEMO_COUNTERS, ...INITIAL_COUNTERS, ...BRANCH_COUNTERS];
-
-export const QCARE_DEMO_DOCTORS: Doctor[] = [
+const APOLLO_COUNTERS: Counter[] = [
   {
-    id: 'doc-01',
-    hospitalId: 'qcare-demo',
-    name: 'Dr. Arvind Swaminathan',
-    specialization: 'Senior Consultant Cardiologist',
-    department: 'Cardiology OPD',
-    roomNo: 'OPD-204',
-    activePatientCount: 14
+    id: 'counter-phleb-apollo',
+    code: 'B-01',
+    name: 'Health Check Phlebotomy Lounge',
+    departmentId: 'dept-pathology',
+    roomNo: 'Room 102',
+    technicianName: 'Amit Saxena',
+    status: 'active',
+    servedCountToday: 10,
+    averageServiceMinutes: 5.0
   },
   {
-    id: 'doc-02',
-    hospitalId: 'qcare-demo',
-    name: 'Dr. Priya Shenoy',
-    specialization: 'Head of Internal Medicine & Diabetology',
-    department: 'Internal Medicine',
-    roomNo: 'OPD-108',
-    activePatientCount: 22
+    id: 'counter-bio-apollo',
+    code: 'BIO-01',
+    name: 'Metabolic Testing Desk',
+    departmentId: 'dept-biochem',
+    roomNo: 'Room 106',
+    technicianName: 'Dr. Malini Roy',
+    status: 'active',
+    servedCountToday: 8,
+    averageServiceMinutes: 5.5
   },
   {
-    id: 'doc-03',
-    hospitalId: 'qcare-demo',
-    name: 'Dr. Vikramaditya Rao',
-    specialization: 'Lead Diagnostic Radiologist & Imaging',
-    department: 'Radiology',
-    roomNo: 'Rad-Lead-01',
-    activePatientCount: 9
+    id: 'counter-ecg-apollo',
+    code: 'E-01',
+    name: 'Heart Centre ECG Console',
+    departmentId: 'dept-cardio',
+    roomNo: 'Room 204',
+    technicianName: 'Tanvi Kapoor',
+    status: 'active',
+    servedCountToday: 7,
+    averageServiceMinutes: 4.5
   },
   {
-    id: 'doc-sarah',
-    hospitalId: 'qcare-demo',
-    name: 'Dr. Sarah Khan',
-    specialization: 'Consultant Physician & Diabetologist',
-    department: 'General Medicine OPD',
-    roomNo: 'OPD Room 12',
-    activePatientCount: 16
+    id: 'counter-xray-apollo',
+    code: 'X-01',
+    name: 'Radiology Tower X-Ray Console',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room B-04',
+    technicianName: 'Rohan Vashist',
+    status: 'active',
+    servedCountToday: 6,
+    averageServiceMinutes: 6.5
+  },
+  {
+    id: 'counter-usg-apollo',
+    code: 'U-01',
+    name: 'Health Check Sonography A',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 110',
+    technicianName: 'Dr. Sameer Khan',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-eye-apollo',
+    code: 'EYE-01',
+    name: 'Apollo Retina OCT Desk',
+    departmentId: 'dept-ophthalmology',
+    roomNo: 'Room 308',
+    technicianName: 'Nisha Gupta',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 8.5
+  },
+  {
+    id: 'counter-ent-apollo',
+    code: 'ENT-01',
+    name: 'Cochlear & Audiology Chamber',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 215',
+    technicianName: 'Aditya Sen',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-neu-apollo',
+    code: 'NEU-01',
+    name: 'Neurosciences EEG Cabin',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 220',
+    technicianName: 'Dr. Priya Nambiar',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 20.0
+  },
+  {
+    id: 'counter-pft-apollo',
+    code: 'PFT-01',
+    name: 'Pulmonary Diagnostic Console',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 112',
+    technicianName: 'Karan Mehra',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 9.0
+  },
+  {
+    id: 'counter-dex-apollo',
+    code: 'DEX-01',
+    name: 'Bone Mineral Density Console',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room B-12',
+    technicianName: 'Suresh Raina',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 14.0
   }
 ];
 
-export const INITIAL_DOCTORS: Doctor[] = [
+const RML_COUNTERS: Counter[] = [
   {
-    id: 'doc-metro-sarah',
-    hospitalId: 'hosp-metro',
-    name: 'Dr. Sarah Khan',
-    specialization: 'Consultant Physician & Diabetologist',
-    department: 'General Medicine OPD',
-    roomNo: 'OPD Room 12',
-    activePatientCount: 16
+    id: 'counter-phleb-rml',
+    code: 'B-01',
+    name: 'OPD Blood Collection Counter 6',
+    departmentId: 'dept-pathology',
+    roomNo: 'Counter 6',
+    technicianName: 'Babulal Meena',
+    status: 'active',
+    servedCountToday: 14,
+    averageServiceMinutes: 4.5
   },
   {
-    id: 'doc-metro-01',
-    hospitalId: 'hosp-metro',
-    name: 'Dr. Arvind Swaminathan',
-    specialization: 'Senior Consultant Cardiologist',
-    department: 'Cardiology OPD',
-    roomNo: 'OPD-204',
-    activePatientCount: 14
+    id: 'counter-bio-rml',
+    code: 'BIO-01',
+    name: 'Central Lab Biochemistry Counter',
+    departmentId: 'dept-biochem',
+    roomNo: 'Room 110',
+    technicianName: 'Dr. Vandana Garg',
+    status: 'active',
+    servedCountToday: 9,
+    averageServiceMinutes: 5.5
   },
   {
-    id: 'doc-metro-02',
-    hospitalId: 'hosp-metro',
-    name: 'Dr. Priya Shenoy',
-    specialization: 'Head of Internal Medicine & Diabetology',
-    department: 'Internal Medicine',
-    roomNo: 'OPD-108',
-    activePatientCount: 22
+    id: 'counter-ecg-rml',
+    code: 'E-01',
+    name: 'Cardiology CTVS Rhythm Desk',
+    departmentId: 'dept-cardio',
+    roomNo: 'Room 214',
+    technicianName: 'Gaurav Bisht',
+    status: 'active',
+    servedCountToday: 8,
+    averageServiceMinutes: 4.5
   },
   {
-    id: 'doc-metro-03',
-    hospitalId: 'hosp-metro',
-    name: 'Dr. Vikramaditya Rao',
-    specialization: 'Lead Diagnostic Radiologist & Imaging',
-    department: 'Radiology',
-    roomNo: 'Rad-Lead-01',
-    activePatientCount: 9
+    id: 'counter-xray-rml',
+    code: 'X-01',
+    name: 'Radiodiagnosis Block Console',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room 08',
+    technicianName: 'Pankaj Srivastava',
+    status: 'active',
+    servedCountToday: 8,
+    averageServiceMinutes: 6.0
+  },
+  {
+    id: 'counter-usg-rml',
+    code: 'U-01',
+    name: 'OPD Sonography Console 1',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 118',
+    technicianName: 'Dr. Nidhi Batra',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-eye-rml',
+    code: 'EYE-01',
+    name: 'Ophthalmic OCT & Refraction Clinic',
+    departmentId: 'dept-ophthalmology',
+    roomNo: 'Room 302',
+    technicianName: 'Ashok Sehgal',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 8.5
+  },
+  {
+    id: 'counter-ent-rml',
+    code: 'ENT-01',
+    name: 'Audiology Cabin Console',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 222',
+    technicianName: 'Archana Singh',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 11.5
+  },
+  {
+    id: 'counter-neu-rml',
+    code: 'NEU-01',
+    name: 'Neurology Department Console',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 408',
+    technicianName: 'Vinod Nair',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 21.0
+  },
+  {
+    id: 'counter-pft-rml',
+    code: 'PFT-01',
+    name: 'Spirometry Cabin Desk',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 102',
+    technicianName: 'Lalit Joshi',
+    status: 'active',
+    servedCountToday: 5,
+    averageServiceMinutes: 9.5
+  },
+  {
+    id: 'counter-dex-rml',
+    code: 'DEX-01',
+    name: 'Radiodiagnosis Bone Suite Console',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room B-04',
+    technicianName: 'Dharmendra Kumar',
+    status: 'active',
+    servedCountToday: 2,
+    averageServiceMinutes: 14.5
   }
 ];
 
-export const BRANCH_DOCTORS: Doctor[] = [
-  // East Diagnostic Clinic Branch Doctors
+const LNJP_COUNTERS: Counter[] = [
   {
-    id: 'doc-east-swaminathan',
-    hospitalId: 'hosp-east',
-    name: 'Dr. Arvind Swaminathan',
-    specialization: 'Consultant Cardiologist & Heart Rhythm',
-    department: 'Cardiac Diagnostic Wing',
-    roomNo: 'Consultation Suite 1',
-    activePatientCount: 5
+    id: 'counter-phleb-lnjp',
+    code: 'B-01',
+    name: 'Main OPD Blood Sample Bay',
+    departmentId: 'dept-pathology',
+    roomNo: 'Room 11',
+    technicianName: 'Mohan Lal',
+    status: 'active',
+    servedCountToday: 13,
+    averageServiceMinutes: 4.5
   },
   {
-    id: 'doc-east-shenoy',
-    hospitalId: 'hosp-east',
-    name: 'Dr. Priya Shenoy',
-    specialization: 'Senior Physician & Metabolic Specialist',
-    department: 'Metabolic Health Clinic',
-    roomNo: 'Consultation Suite 2',
-    activePatientCount: 6
+    id: 'counter-bio-lnjp',
+    code: 'BIO-01',
+    name: 'Clinical Lab Biochemistry Desk',
+    departmentId: 'dept-biochem',
+    roomNo: 'Room 105',
+    technicianName: 'Dr. Renu Aggarwal',
+    status: 'active',
+    servedCountToday: 9,
+    averageServiceMinutes: 5.5
   },
-  // Dr. Sarah's Family Practice (Single-Doctor Clinic)
   {
-    id: 'doc-clinic-sarah',
-    hospitalId: 'hosp-clinic',
-    name: 'Dr. Sarah Khan',
-    specialization: 'Consultant Family Physician (Single OPD Practice)',
-    department: 'General Family Practice',
-    roomNo: 'OPD Consulting Room',
-    activePatientCount: 2
+    id: 'counter-ecg-lnjp',
+    code: 'E-01',
+    name: 'Cardiac OPD Rhythm Station',
+    departmentId: 'dept-cardio',
+    roomNo: 'Room 122',
+    technicianName: 'Tarun Verma',
+    status: 'active',
+    servedCountToday: 7,
+    averageServiceMinutes: 4.5
+  },
+  {
+    id: 'counter-xray-lnjp',
+    code: 'X-01',
+    name: 'Trauma & Emergency X-Ray Unit',
+    departmentId: 'dept-radiology',
+    roomNo: 'Room 04',
+    technicianName: 'Jagdish Prasad',
+    status: 'active',
+    servedCountToday: 8,
+    averageServiceMinutes: 6.0
+  },
+  {
+    id: 'counter-usg-lnjp',
+    code: 'U-01',
+    name: 'Main OPD Sonography Console',
+    departmentId: 'dept-ultrasound',
+    roomNo: 'Room 16',
+    technicianName: 'Dr. Seema Malik',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-eye-lnjp',
+    code: 'EYE-01',
+    name: 'Guru Nanak Eye Centre Desk',
+    departmentId: 'dept-ophthalmology',
+    roomNo: 'Room 110',
+    technicianName: 'Mahesh Chand',
+    status: 'active',
+    servedCountToday: 4,
+    averageServiceMinutes: 8.5
+  },
+  {
+    id: 'counter-ent-lnjp',
+    code: 'ENT-01',
+    name: 'Speech & Hearing Audiometry Desk',
+    departmentId: 'dept-ent',
+    roomNo: 'Room 208',
+    technicianName: 'Sunita Chauhan',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 12.0
+  },
+  {
+    id: 'counter-neu-lnjp',
+    code: 'NEU-01',
+    name: 'G.B. Pant / LNJP Neuro Lab Console',
+    departmentId: 'dept-neurology',
+    roomNo: 'Room 215',
+    technicianName: 'Pradeep Jha',
+    status: 'active',
+    servedCountToday: 3,
+    averageServiceMinutes: 21.0
+  },
+  {
+    id: 'counter-pft-lnjp',
+    code: 'PFT-01',
+    name: 'Chest Clinic Spirometry Unit',
+    departmentId: 'dept-pulmonary',
+    roomNo: 'Room 108',
+    technicianName: 'Rameshwar Dayal',
+    status: 'active',
+    servedCountToday: 6,
+    averageServiceMinutes: 9.0
+  },
+  {
+    id: 'counter-dex-lnjp',
+    code: 'DEX-01',
+    name: 'Orthopaedic Centre BMD Unit',
+    departmentId: 'dept-orthopedics',
+    roomNo: 'Room B-02',
+    technicianName: 'Devraj Singh',
+    status: 'active',
+    servedCountToday: 2,
+    averageServiceMinutes: 15.0
   }
 ];
 
-export const ALL_INITIAL_DOCTORS: Doctor[] = [
-  ...QCARE_DEMO_DOCTORS,
-  ...INITIAL_DOCTORS, 
-  ...BRANCH_DOCTORS
-];
-
-export const INITIAL_PATIENTS: Patient[] = [
-  {
-    id: 'pat-rajesh',
-    uhid: 'QC-2026-9411',
-    name: 'Rajesh Sharma',
-    age: 54,
-    gender: 'Male',
-    contact: '+91 98201 44521',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD-204',
-    currentIllness: 'Cardio-metabolic workup — Chronic fatigue, high post-meal sugar spikes & palpitations',
-    symptoms: 'Chronic fatigue, high sugar spikes & palpitations',
-    prescribedTests: ['test-cbc', 'test-ecg', 'test-xray-chest', 'test-usg-abdomen'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'test-cbc': 'tok-rajesh-cbc',
-      'test-ecg': 'tok-rajesh-ecg',
-      'test-xray-chest': 'tok-rajesh-xray',
-      'test-usg-abdomen': 'tok-rajesh-usg',
-      'opd-consultation': 'tok-opd-rajesh'
-    },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg', 'test-xray-chest', 'test-cbc', 'test-usg-abdomen'],
-    assignedNaiveRoute: ['test-cbc', 'test-ecg', 'test-xray-chest', 'test-usg-abdomen'],
-    registrationTime: '08:45 AM',
-    opdTokenNumber: 'OPD-101',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-aarav',
-    uhid: 'QC-1082',
-    name: 'Aarav Gupta',
-    age: 34,
-    gender: 'Male',
-    contact: '+91 98200 12345',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Acute onset chest tightness & breathlessness upon exertion for 2 days',
-    symptoms: 'Severe chest tightness & breathlessness for 2 days',
-    prescribedTests: ['test-cbc', 'test-ecg', 'test-xray-chest'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'test-cbc': 'tok-aarav-cbc',
-      'test-ecg': 'tok-aarav-ecg',
-      'test-xray-chest': 'tok-aarav-xray',
-      'opd-consultation': 'tok-opd-aarav'
-    },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg', 'test-xray-chest', 'test-cbc'],
-    assignedNaiveRoute: ['test-cbc', 'test-ecg', 'test-xray-chest'],
-    registrationTime: '09:15 AM',
-    opdTokenNumber: 'OPD-102',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-balbir',
-    uhid: 'QC-2026-8832',
-    name: 'Col. Balbir Singh (Retd)',
-    age: 73,
-    gender: 'Male',
-    contact: '+91 94191 00213',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD-108',
-    currentIllness: 'Senior diabetic routine review — Numbness in extremities & fasting hyperglycemia',
-    symptoms: 'Numbness in extremities, fasting hyperglycemia',
-    prescribedTests: ['test-fbs', 'test-ecg', 'test-cbc'],
-    completedTests: ['test-fbs'],
-    currentTestId: 'test-ecg',
-    activeTokenIds: {
-      'test-fbs': 'tok-balbir-fbs',
-      'test-ecg': 'tok-balbir-ecg',
-      'test-cbc': 'tok-balbir-cbc',
-      'opd-consultation': 'tok-opd-balbir'
-    },
-    status: 'in_test',
-    assignedSmartRoute: ['test-fbs', 'test-ecg', 'test-cbc'],
-    assignedNaiveRoute: ['test-fbs', 'test-cbc', 'test-ecg'],
-    registrationTime: '08:15 AM',
-    opdTokenNumber: 'OPD-103',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-ananya',
-    uhid: 'QC-2026-9904',
-    name: 'Ananya Deshmukh',
-    age: 28,
-    gender: 'Female',
-    contact: '+91 97664 12890',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD-204',
-    currentIllness: 'Preventive health screening — Recurrent mild dizziness & routine wellness',
-    symptoms: 'Recurrent dizziness & routine wellness check',
-    prescribedTests: ['test-cbc', 'test-ecg'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'test-cbc': 'tok-ananya-cbc',
-      'test-ecg': 'tok-ananya-ecg',
-      'opd-consultation': 'tok-opd-ananya'
-    },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg', 'test-cbc'],
-    assignedNaiveRoute: ['test-cbc', 'test-ecg'],
-    registrationTime: '09:05 AM',
-    opdTokenNumber: 'OPD-104',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-meera',
-    uhid: 'QC-2026-7719',
-    name: 'Meera Joshi',
-    age: 62,
-    gender: 'Female',
-    contact: '+91 98902 33411',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Metabolic evaluation — Persistent lethargy, cold intolerance & borderline glucose',
-    symptoms: 'Persistent lethargy, cold intolerance & borderline glucose',
-    prescribedTests: ['test-fbs', 'test-ecg'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'test-fbs': 'tok-meera-fbs',
-      'test-ecg': 'tok-meera-ecg',
-      'opd-consultation': 'tok-opd-meera'
-    },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-fbs', 'test-ecg'],
-    assignedNaiveRoute: ['test-fbs', 'test-ecg'],
-    registrationTime: '08:00 AM',
-    opdTokenNumber: 'OPD-105',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-rohan',
-    uhid: 'QC-2026-4401',
-    name: 'Rohan Verma',
-    age: 41,
-    gender: 'Male',
-    contact: '+91 98112 88990',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Acute abdominal cramps, nausea and mild dehydration since last night',
-    symptoms: 'Abdominal cramps, nausea and mild dehydration',
-    prescribedTests: [],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'opd-consultation': 'tok-opd-rohan'
-    },
-    status: 'checked_in',
-    assignedSmartRoute: [],
-    assignedNaiveRoute: [],
-    registrationTime: '09:30 AM',
-    opdTokenNumber: 'OPD-106',
-    doctorReviewStatus: 'awaiting_prescription'
-  },
-  {
-    id: 'pat-sunita',
-    uhid: 'QC-2026-6612',
-    name: 'Sunita Patel',
-    age: 48,
-    gender: 'Female',
-    contact: '+91 98211 55678',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD-108',
-    currentIllness: 'Diabetic retinal follow-up — Blurry peripheral vision & glycemic monitoring',
-    symptoms: 'Blurry peripheral vision & glycemic monitoring',
-    prescribedTests: ['test-oct-retina', 'test-fbs'],
-    completedTests: ['test-fbs', 'test-oct-retina'],
-    currentTestId: undefined,
-    activeTokenIds: {
-      'test-fbs': 'tok-sunita-fbs',
-      'test-oct-retina': 'tok-sunita-oct',
-      'opd-consultation': 'tok-opd-sunita'
-    },
-    status: 'all_completed',
-    assignedSmartRoute: ['test-fbs', 'test-oct-retina'],
-    assignedNaiveRoute: ['test-fbs', 'test-oct-retina'],
-    registrationTime: '07:30 AM',
-    opdTokenNumber: 'OPD-100',
-    doctorReviewStatus: 'reports_ready'
-  },
-  {
-    id: 'patient-walkin-01',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-1091',
-    name: 'Virendra Saxena',
-    age: 52,
-    gender: 'Male',
-    contact: '+91 98200 45610',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Routine diabetic fasting draw & CBC evaluation',
-    symptoms: 'Diabetic fasting draw & CBC check',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: 'test-cbc',
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-01', 'opd-consultation': 'tok-opd-virendra' },
-    status: 'in_test',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:20 AM',
-    opdTokenNumber: 'OPD-107',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-walkin-02',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-1092',
-    name: 'Pooja Nambiar',
-    age: 29,
-    gender: 'Female',
-    contact: '+91 98200 78901',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD-108',
-    currentIllness: 'Antenatal CBC & blood grouping profile',
-    symptoms: 'Routine antenatal blood test',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: 'test-cbc',
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-02', 'opd-consultation': 'tok-opd-pooja' },
-    status: 'in_test',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:22 AM',
-    opdTokenNumber: 'OPD-108',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-w3',
-    uhid: 'QC-1093',
-    name: 'Harish Chawla',
-    age: 61,
-    gender: 'Male',
-    contact: '+91 98200 99881',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD-204',
-    currentIllness: 'Fever and fatigue, CBC requested',
-    symptoms: 'Fever and fatigue',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-03', 'opd-consultation': 'tok-opd-harish' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:25 AM',
-    opdTokenNumber: 'OPD-109',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-w4',
-    uhid: 'QC-1094',
-    name: 'Kavita Reddy',
-    age: 38,
-    gender: 'Female',
-    contact: '+91 98200 33445',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Complete Hemogram workup for anemia',
-    symptoms: 'Pallor and fatigue',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-04', 'opd-consultation': 'tok-opd-kavita' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:26 AM',
-    opdTokenNumber: 'OPD-110',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-w5',
-    uhid: 'QC-1095',
-    name: 'Deepak Roy',
-    age: 44,
-    gender: 'Male',
-    contact: '+91 98200 55667',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD-204',
-    currentIllness: 'Post-viral recovery, platelet count check',
-    symptoms: 'Post-viral recovery',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-05', 'opd-consultation': 'tok-opd-deepak' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:28 AM',
-    opdTokenNumber: 'OPD-111',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-w6',
-    uhid: 'QC-1096',
-    name: 'Saroj Bala',
-    age: 67,
-    gender: 'Female',
-    contact: '+91 98200 77889',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD-108',
-    currentIllness: 'Senior health checkup, CBC examination',
-    symptoms: 'Senior health checkup',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-06', 'opd-consultation': 'tok-opd-saroj' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:30 AM',
-    opdTokenNumber: 'OPD-112',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-w7',
-    uhid: 'QC-1097',
-    name: 'Amitabh Sen',
-    age: 50,
-    gender: 'Male',
-    contact: '+91 98200 11224',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Room 12',
-    currentIllness: 'Annual health checkup CBC panel',
-    symptoms: 'Annual health checkup',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'token-rush-bld-07', 'opd-consultation': 'tok-opd-amitabh' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:33 AM',
-    opdTokenNumber: 'OPD-113',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-rad-w1',
-    uhid: 'QC-1098',
-    name: 'Manish Tiwari',
-    age: 46,
-    gender: 'Male',
-    contact: '+91 98200 44332',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'Rad-Lead-01',
-    currentIllness: 'Chest X-Ray for persistent dry cough',
-    symptoms: 'Persistent dry cough',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    currentTestId: 'test-xray-chest',
-    activeTokenIds: { 'test-xray-chest': 'tok-xray-w1', 'opd-consultation': 'tok-opd-manish' },
-    status: 'in_test',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:40 AM',
-    opdTokenNumber: 'OPD-114',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-usg-w1',
-    uhid: 'QC-1099',
-    name: 'Sunita Deshpande',
-    age: 53,
-    gender: 'Female',
-    contact: '+91 98200 66554',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD-204',
-    currentIllness: 'Whole abdomen ultrasound scan',
-    symptoms: 'Upper abdominal pain',
-    prescribedTests: ['test-usg-abdomen'],
-    completedTests: [],
-    currentTestId: 'test-usg-abdomen',
-    activeTokenIds: { 'test-usg-abdomen': 'tok-usg-w1', 'opd-consultation': 'tok-opd-sunitad' },
-    status: 'in_test',
-    assignedSmartRoute: ['test-usg-abdomen'],
-    assignedNaiveRoute: ['test-usg-abdomen'],
-    registrationTime: '08:35 AM',
-    opdTokenNumber: 'OPD-115',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'patient-usg-w2',
-    uhid: 'QC-1100',
-    name: 'Kishore Kumar',
-    age: 39,
-    gender: 'Male',
-    contact: '+91 98200 88776',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD-108',
-    currentIllness: 'Abdominal ultrasound evaluation',
-    symptoms: 'Abdominal discomfort',
-    prescribedTests: ['test-usg-abdomen'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-usg-abdomen': 'tok-usg-w2', 'opd-consultation': 'tok-opd-kishore' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-usg-abdomen'],
-    assignedNaiveRoute: ['test-usg-abdomen'],
-    registrationTime: '08:40 AM',
-    opdTokenNumber: 'OPD-116',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  }
-];
-
-// Branch Patients for Multi-Hospital Tenancy (East Diagnostic Plaza & Dr. Sarah's Single-Doctor Clinic)
-export const BRANCH_PATIENTS: Patient[] = [
-  // ==========================================
-  // East Wing Diagnostic Clinic Patients (hosp-east)
-  // ==========================================
-  {
-    id: 'pat-east-ananya',
-    hospitalId: 'hosp-east',
-    hospitalName: 'CityCare Prime Diagnostic Clinic (East Wing)',
-    uhid: 'QC-EAST-101',
-    name: 'Ananya Verma',
-    age: 38,
-    gender: 'Female',
-    contact: '+91 98200 11990',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-east-shenoy',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'Consultation Suite 2',
-    currentIllness: 'Pre-operative metabolic screening & routine ECG',
-    symptoms: 'Pre-op metabolic checkup',
-    prescribedTests: ['test-fbs', 'test-ecg'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-fbs': 'tok-east-fbs-1', 'test-ecg': 'tok-east-ecg-1', 'opd-consultation': 'tok-opd-east-ananya' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-fbs', 'test-ecg'],
-    assignedNaiveRoute: ['test-fbs', 'test-ecg'],
-    registrationTime: '09:00 AM',
-    opdTokenNumber: 'OPD-E01',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-east-deepak',
-    hospitalId: 'hosp-east',
-    hospitalName: 'CityCare Prime Diagnostic Clinic (East Wing)',
-    uhid: 'QC-EAST-102',
-    name: 'Deepak Joshi',
-    age: 62,
-    gender: 'Male',
-    contact: '+91 98200 22881',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-east-swaminathan',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'Consultation Suite 1',
-    currentIllness: 'Cardiac evaluation for occasional palpitations',
-    symptoms: 'Palpitations & mild exertion breathlessness',
-    prescribedTests: ['test-ecg', 'test-xray-chest'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-ecg': 'tok-east-ecg-2', 'test-xray-chest': 'tok-east-rad-1', 'opd-consultation': 'tok-opd-east-deepak' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg', 'test-xray-chest'],
-    assignedNaiveRoute: ['test-ecg', 'test-xray-chest'],
-    registrationTime: '09:15 AM',
-    opdTokenNumber: 'OPD-E02',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  // ==========================================
-  // Dr. Sarah's Family Practice Patients (hosp-clinic)
-  // Single-Doctor Practice with Attached Labs
-  // ==========================================
-  {
-    id: 'pat-clinic-rohan',
-    hospitalId: 'hosp-clinic',
-    hospitalName: "Dr. Sarah's Family Practice (Single-Doctor Clinic)",
-    uhid: 'QC-CLN-501',
-    name: 'Rohan Mehta',
-    age: 28,
-    gender: 'Male',
-    contact: '+91 98200 44332',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-clinic-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Consulting Room',
-    currentIllness: 'Acute high fever, body ache, and chills for 2 days',
-    symptoms: 'Fever, severe fatigue, body ache',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-cbc': 'tok-cln-cbc-1', 'opd-consultation': 'tok-opd-cln-rohan' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '09:30 AM',
-    opdTokenNumber: 'CLN-101',
-    doctorReviewStatus: 'awaiting_lab_reports'
-  },
-  {
-    id: 'pat-clinic-kamla',
-    hospitalId: 'hosp-clinic',
-    hospitalName: "Dr. Sarah's Family Practice (Single-Doctor Clinic)",
-    uhid: 'QC-CLN-502',
-    name: 'Kamla Devi',
-    age: 67,
-    gender: 'Female',
-    contact: '+91 98200 55667',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-clinic-sarah',
-    prescribedDoctorName: 'Dr. Sarah Khan',
-    prescribedDoctorRoom: 'OPD Consulting Room',
-    currentIllness: 'Hypertension monitoring & occasional dizziness',
-    symptoms: 'High blood pressure & dizziness',
-    prescribedTests: ['test-ecg'],
-    completedTests: ['test-ecg'],
-    currentTestId: undefined,
-    activeTokenIds: { 'test-ecg': 'tok-cln-ecg-1', 'opd-consultation': 'tok-opd-cln-kamla' },
-    status: 'all_completed',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '09:40 AM',
-    opdTokenNumber: 'CLN-102',
-    doctorReviewStatus: 'reports_ready'
-  }
-];
-
-export const DEMO_PATIENT_RAHUL: Patient = {
-  id: 'pat-rahul-sharma',
-  hospitalId: 'qcare-demo',
-  hospitalName: 'QCare Demo Hospital',
-  uhid: 'QC-2026-9411',
-  name: 'Rahul Sharma',
-  age: 45,
-  gender: 'Male',
-  contact: '9876543210',
-  priority: 'standard',
-  doctorPriority: 'priority',
-  prescribedDoctorId: 'doc-01',
-  prescribedDoctorName: 'Dr. Arvind Swaminathan',
-  prescribedDoctorRoom: 'OPD Room 204',
-  department: 'Cardiology & Diagnostic Medicine',
-  currentIllness: 'Prescribed diagnostic battery — intermittent chest heaviness & upper abdominal discomfort',
-  symptoms: 'Chest heaviness & abdominal fullness',
-  prescribedTests: ['test-ecg', 'test-cbc', 'test-usg-abdomen', 'test-xray-chest'],
-  completedTests: [],
-  currentTestId: undefined,
-  activeTokenIds: {
-    'test-usg-abdomen': 'tok-rahul-usg',
-    'test-cbc': 'tok-rahul-cbc',
-    'test-ecg': 'tok-rahul-ecg',
-    'test-xray-chest': 'tok-rahul-xray',
-    'opd-consultation': 'tok-opd-rahul'
-  },
-  status: 'checked_in',
-  assignedSmartRoute: ['test-usg-abdomen', 'test-cbc', 'test-ecg', 'test-xray-chest'],
-  assignedNaiveRoute: ['test-ecg', 'test-cbc', 'test-usg-abdomen', 'test-xray-chest'],
-  registrationTime: '09:00 AM',
-  opdTokenNumber: 'OPD-201',
-  doctorReviewStatus: 'awaiting_lab_reports',
-  secureQrToken: 'token-rahul-987645'
+export const HOSPITAL_COUNTERS_MAP: Record<string, Counter[]> = {
+  'MAX-01': INITIAL_COUNTERS,
+  'H001': INITIAL_COUNTERS,
+  'APOLLO-02': APOLLO_COUNTERS,
+  'H002': APOLLO_COUNTERS,
+  'AIIMS-03': AIIMS_COUNTERS,
+  'H003': AIIMS_COUNTERS,
+  'SAFDARJUNG-04': SAFDARJUNG_COUNTERS,
+  'H004': SAFDARJUNG_COUNTERS,
+  'RML-05': RML_COUNTERS,
+  'H005': RML_COUNTERS,
+  'LNJP-06': LNJP_COUNTERS,
+  'H006': LNJP_COUNTERS
 };
 
-export const QCARE_DEMO_PATIENTS: Patient[] = [
-  // USG Patients
-  {
-    id: 'pat-qdemo-usg-01',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-U01',
-    name: 'Sunita Sharma',
-    age: 42,
-    gender: 'Female',
-    contact: '9811234011',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology & Diagnostic Medicine',
-    prescribedTests: ['test-usg-abdomen'],
-    completedTests: [],
-    activeTokenIds: { 'test-usg-abdomen': 'qdemo-usg-01' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-usg-abdomen'],
-    assignedNaiveRoute: ['test-usg-abdomen'],
-    registrationTime: '08:40 AM',
-    opdTokenNumber: 'OPD-101',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-u01'
-  },
-  {
-    id: 'pat-qdemo-usg-02',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-U02',
-    name: 'Anand Verma',
-    age: 58,
-    gender: 'Male',
-    contact: '9811234012',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology & Diagnostic Medicine',
-    prescribedTests: ['test-usg-abdomen'],
-    completedTests: [],
-    activeTokenIds: { 'test-usg-abdomen': 'qdemo-usg-02' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-usg-abdomen'],
-    assignedNaiveRoute: ['test-usg-abdomen'],
-    registrationTime: '08:48 AM',
-    opdTokenNumber: 'OPD-102',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-u02'
-  },
-  // Blood Lab (Pathology) Patients
-  {
-    id: 'pat-qdemo-bld-01',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-B01',
-    name: 'Priya Nair',
-    age: 31,
-    gender: 'Female',
-    contact: '9822345001',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD Room 108',
-    department: 'Internal Medicine',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    activeTokenIds: { 'test-cbc': 'qdemo-bld-01' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:45 AM',
-    opdTokenNumber: 'OPD-103',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-b01'
-  },
-  {
-    id: 'pat-qdemo-bld-02',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-B02',
-    name: 'Vikramaditya Sen',
-    age: 49,
-    gender: 'Male',
-    contact: '9822345002',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD Room 108',
-    department: 'Internal Medicine',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    activeTokenIds: { 'test-cbc': 'qdemo-bld-02' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:48 AM',
-    opdTokenNumber: 'OPD-104',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-b02'
-  },
-  {
-    id: 'pat-qdemo-bld-03',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-B03',
-    name: 'Meera Iyer',
-    age: 27,
-    gender: 'Female',
-    contact: '9822345003',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD Room 108',
-    department: 'Internal Medicine',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    activeTokenIds: { 'test-cbc': 'qdemo-bld-03' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:50 AM',
-    opdTokenNumber: 'OPD-105',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-b03'
-  },
-  {
-    id: 'pat-qdemo-bld-04',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-B04',
-    name: 'Deepak Chopra',
-    age: 64,
-    gender: 'Male',
-    contact: '9822345004',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD Room 108',
-    department: 'Internal Medicine',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    activeTokenIds: { 'test-cbc': 'qdemo-bld-04' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:52 AM',
-    opdTokenNumber: 'OPD-106',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-b04'
-  },
-  {
-    id: 'pat-qdemo-bld-05',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-B05',
-    name: 'Kavita Krishnan',
-    age: 38,
-    gender: 'Female',
-    contact: '9822345005',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-02',
-    prescribedDoctorName: 'Dr. Priya Shenoy',
-    prescribedDoctorRoom: 'OPD Room 108',
-    department: 'Internal Medicine',
-    prescribedTests: ['test-cbc'],
-    completedTests: [],
-    activeTokenIds: { 'test-cbc': 'qdemo-bld-05' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-cbc'],
-    assignedNaiveRoute: ['test-cbc'],
-    registrationTime: '08:55 AM',
-    opdTokenNumber: 'OPD-107',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-b05'
-  },
-  // X-Ray (Radiology) Patients
-  {
-    id: 'pat-qdemo-xray-01',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X01',
-    name: 'Harish Mehta',
-    age: 52,
-    gender: 'Male',
-    contact: '9833456001',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-01' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:42 AM',
-    opdTokenNumber: 'OPD-108',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x01'
-  },
-  {
-    id: 'pat-qdemo-xray-02',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X02',
-    name: 'Rajesh Malhotra',
-    age: 47,
-    gender: 'Male',
-    contact: '9833456002',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-02' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:45 AM',
-    opdTokenNumber: 'OPD-109',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x02'
-  },
-  {
-    id: 'pat-qdemo-xray-03',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X03',
-    name: 'Pooja Hegde',
-    age: 29,
-    gender: 'Female',
-    contact: '9833456003',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-03' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:48 AM',
-    opdTokenNumber: 'OPD-110',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x03'
-  },
-  {
-    id: 'pat-qdemo-xray-04',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X04',
-    name: 'Balbir Singh',
-    age: 68,
-    gender: 'Male',
-    contact: '9833456004',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-04' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:50 AM',
-    opdTokenNumber: 'OPD-111',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x04'
-  },
-  {
-    id: 'pat-qdemo-xray-05',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X05',
-    name: 'Ritu Saxena',
-    age: 35,
-    gender: 'Female',
-    contact: '9833456005',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-05' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:53 AM',
-    opdTokenNumber: 'OPD-112',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x05'
-  },
-  {
-    id: 'pat-qdemo-xray-06',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X06',
-    name: 'Aarav Patel',
-    age: 22,
-    gender: 'Male',
-    contact: '9833456006',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-06' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:55 AM',
-    opdTokenNumber: 'OPD-113',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x06'
-  },
-  {
-    id: 'pat-qdemo-xray-07',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-X07',
-    name: 'Suresh Raina',
-    age: 55,
-    gender: 'Male',
-    contact: '9833456007',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-03',
-    prescribedDoctorName: 'Dr. Vikramaditya Rao',
-    prescribedDoctorRoom: 'OPD Room Rad-01',
-    department: 'Radiology',
-    prescribedTests: ['test-xray-chest'],
-    completedTests: [],
-    activeTokenIds: { 'test-xray-chest': 'qdemo-xray-07' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-xray-chest'],
-    assignedNaiveRoute: ['test-xray-chest'],
-    registrationTime: '08:58 AM',
-    opdTokenNumber: 'OPD-114',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-x07'
-  },
-  // ECG (Cardiology) Patients
-  {
-    id: 'pat-qdemo-ecg-01',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E01',
-    name: 'Ramesh Kulkarni',
-    age: 61,
-    gender: 'Male',
-    contact: '9844567001',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-01' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:30 AM',
-    opdTokenNumber: 'OPD-115',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e01'
-  },
-  {
-    id: 'pat-qdemo-ecg-02',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E02',
-    name: 'Alok Nath',
-    age: 56,
-    gender: 'Male',
-    contact: '9844567002',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-02' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:35 AM',
-    opdTokenNumber: 'OPD-116',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e02'
-  },
-  {
-    id: 'pat-qdemo-ecg-03',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E03',
-    name: 'Shweta Tiwari',
-    age: 34,
-    gender: 'Female',
-    contact: '9844567003',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-03' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:38 AM',
-    opdTokenNumber: 'OPD-117',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e03'
-  },
-  {
-    id: 'pat-qdemo-ecg-04',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E04',
-    name: 'Girish Karnad',
-    age: 70,
-    gender: 'Male',
-    contact: '9844567004',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-04' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:41 AM',
-    opdTokenNumber: 'OPD-118',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e04'
-  },
-  {
-    id: 'pat-qdemo-ecg-05',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E05',
-    name: 'Ananya Mukherjee',
-    age: 41,
-    gender: 'Female',
-    contact: '9844567005',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-05' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:44 AM',
-    opdTokenNumber: 'OPD-119',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e05'
-  },
-  {
-    id: 'pat-qdemo-ecg-06',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E06',
-    name: 'Manish Pandey',
-    age: 39,
-    gender: 'Male',
-    contact: '9844567006',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-06' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:47 AM',
-    opdTokenNumber: 'OPD-120',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e06'
-  },
-  {
-    id: 'pat-qdemo-ecg-07',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E07',
-    name: 'Tanvi Rastogi',
-    age: 28,
-    gender: 'Female',
-    contact: '9844567007',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-07' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:50 AM',
-    opdTokenNumber: 'OPD-121',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e07'
-  },
-  {
-    id: 'pat-qdemo-ecg-08',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E08',
-    name: 'Devendra Joshi',
-    age: 50,
-    gender: 'Male',
-    contact: '9844567008',
-    priority: 'standard',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-08' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:52 AM',
-    opdTokenNumber: 'OPD-122',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e08'
-  },
-  {
-    id: 'pat-qdemo-ecg-09',
-    hospitalId: 'qcare-demo',
-    uhid: 'QC-DEMO-E09',
-    name: 'Kiran Bedi',
-    age: 66,
-    gender: 'Female',
-    contact: '9844567009',
-    priority: 'senior',
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: 'Dr. Arvind Swaminathan',
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: 'Cardiology OPD',
-    prescribedTests: ['test-ecg'],
-    completedTests: [],
-    activeTokenIds: { 'test-ecg': 'qdemo-ecg-09' },
-    status: 'checked_in',
-    assignedSmartRoute: ['test-ecg'],
-    assignedNaiveRoute: ['test-ecg'],
-    registrationTime: '08:54 AM',
-    opdTokenNumber: 'OPD-123',
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: 'tok-qdemo-e09'
+export function getCountersForHospital(query: string): Counter[] {
+  if (!query) return INITIAL_COUNTERS;
+  const hosp = findHospitalByQuery(query);
+  const code = (hosp ? hosp.code : query).toUpperCase().replace(/\s+/g, '-');
+  if (HOSPITAL_COUNTERS_MAP[code]) {
+    return HOSPITAL_COUNTERS_MAP[code];
   }
-];
+  const id = (hosp ? hosp.id : query).toUpperCase();
+  if (HOSPITAL_COUNTERS_MAP[id]) {
+    return HOSPITAL_COUNTERS_MAP[id];
+  }
+  return INITIAL_COUNTERS;
+}
 
-export const ALL_INITIAL_PATIENTS: Patient[] = [
-  DEMO_PATIENT_RAHUL, 
-  ...QCARE_DEMO_PATIENTS,
-  ...INITIAL_PATIENTS, 
-  ...BRANCH_PATIENTS
-];
+/**
+ * Clean slate default arrays (Zero fake data initially)
+ */
+export const INITIAL_PATIENTS: Patient[] = [];
+export const INITIAL_QUEUE_TOKENS: QueueToken[] = [];
+export const INITIAL_CLINICAL_REPORTS: ClinicalReport[] = [];
 
-// Seed realistic queue tokens to illustrate high congestion at blood lab vs empty ECG/Xray
-export const INITIAL_QUEUE_TOKENS: QueueToken[] = [
-  // Blood Lab Queue (High Congestion: 14 people waiting!)
-  {
-    id: 'token-rush-bld-01',
-    tokenNumber: 'BLD-101',
-    patientId: 'patient-walkin-01',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-bld-1',
-    priority: 'standard',
-    status: 'in_progress',
-    issuedAt: '08:20 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
+/**
+ * Pre-configured realistic Demo Scenario (Rameshwar Sharma)
+ */
+export const DEMO_SCENARIO_PATIENT: Patient = {
+  id: 'pat-rameshwar',
+  uhid: 'QC-2026-9411',
+  qrSessionId: 'QC-9411',
+  name: 'Rameshwar Sharma',
+  age: 52,
+  gender: 'Male',
+  contact: '+91 98765 43210',
+  priority: 'standard',
+  doctorPriority: 'normal',
+  prescribedDoctorId: 'doc-verma',
+  prescribedDoctorName: 'Dr. Rajesh Verma',
+  prescribedDoctorRoom: 'Room 104',
+  chiefComplaint: 'Chest pain, tightness and uneasiness since yesterday',
+  symptoms: 'Substernal chest tightness radiating to left shoulder',
+  prescribedTests: ['test-fbs', 'test-cbc', 'test-ecg', 'test-xray-chest'],
+  prescribedTestItems: [
+    {
+      testId: 'test-fbs',
+      testName: 'Blood Sugar Fasting',
+      technicalName: 'Fasting Blood Glucose (FBG)',
+      priority: 'normal',
+      status: 'waiting',
+      preparationInstructions: 'Empty stomach / Fasting sample required'
+    },
+    {
+      testId: 'test-ecg',
+      testName: 'Heart Rhythm',
+      technicalName: '12-Lead Electrocardiogram (ECG)',
+      priority: 'normal',
+      status: 'waiting',
+      preparationInstructions: 'Rest quietly 5 minutes prior'
+    },
+    {
+      testId: 'test-xray-chest',
+      testName: 'Chest X-Ray',
+      technicalName: 'Digital Chest Radiography (PA View)',
+      priority: 'normal',
+      status: 'waiting',
+      preparationInstructions: 'Remove metallic ornaments and neck chains'
+    },
+    {
+      testId: 'test-cbc',
+      testName: 'Blood Collection',
+      technicalName: 'Complete Blood Count (CBC)',
+      priority: 'normal',
+      status: 'waiting',
+      preparationInstructions: 'Routine venous blood sample'
+    }
+  ],
+  completedTests: [],
+  currentLockedDestinationTestId: 'test-fbs', // Stability lock at Room 14
+  activeTokenIds: {
+    'test-fbs': 'tok-demo-rameshwar-fbs',
+    'test-ecg': 'tok-demo-rameshwar-ecg',
+    'test-xray-chest': 'tok-demo-rameshwar-xray',
+    'test-cbc': 'tok-demo-rameshwar-cbc'
   },
-  {
-    id: 'token-rush-bld-02',
-    tokenNumber: 'BLD-102',
-    patientId: 'patient-walkin-02',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-bld-2',
-    priority: 'standard',
-    status: 'in_progress',
-    issuedAt: '08:22 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'token-rush-bld-03',
-    tokenNumber: 'BLD-103',
-    patientId: 'patient-w3',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:25 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 5
-  },
-  {
-    id: 'token-rush-bld-04',
-    tokenNumber: 'BLD-104',
-    patientId: 'patient-w4',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:26 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 10
-  },
-  {
-    id: 'token-rush-bld-05',
-    tokenNumber: 'BLD-105',
-    patientId: 'patient-w5',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:28 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 15
-  },
-  {
-    id: 'token-rush-bld-06',
-    tokenNumber: 'BLD-106',
-    patientId: 'patient-w6',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:30 AM',
-    queuePosition: 4,
-    estimatedWaitMinutes: 20
-  },
-  {
-    id: 'token-rush-bld-07',
-    tokenNumber: 'BLD-107',
-    patientId: 'patient-w7',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:33 AM',
-    queuePosition: 5,
-    estimatedWaitMinutes: 25
-  },
-  {
-    id: 'tok-rajesh-cbc',
-    tokenNumber: 'BLD-108',
-    patientId: 'pat-rajesh',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:45 AM',
-    queuePosition: 6,
-    estimatedWaitMinutes: 30
-  },
-  {
-    id: 'tok-ananya-cbc',
-    tokenNumber: 'BLD-109',
-    patientId: 'pat-ananya',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:05 AM',
-    queuePosition: 7,
-    estimatedWaitMinutes: 35
-  },
-  {
-    id: 'tok-aarav-cbc',
-    tokenNumber: 'BLD-110',
-    patientId: 'pat-aarav',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 8,
-    estimatedWaitMinutes: 40
-  },
+  status: 'in_transit',
+  assignedSmartRoute: ['test-fbs', 'test-ecg', 'test-xray-chest', 'test-cbc'],
+  registrationTime: '09:15 AM',
+  opdTokenNumber: 'OPD-14',
+  doctorReviewStatus: 'awaiting_lab_reports',
+  notes: 'Fasting status confirmed by patient attendants.'
+};
 
-  // ECG Station (Completely Empty / Near-zero wait!)
+export const DEMO_SCENARIO_TOKENS: QueueToken[] = [
+  // Rameshwar's official tokens at all prescribed bays
   {
-    id: 'tok-balbir-ecg',
-    tokenNumber: 'ECG-201',
-    patientId: 'pat-balbir',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-ecg-1',
-    priority: 'senior',
-    status: 'in_progress',
-    issuedAt: '08:50 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'tok-rajesh-ecg',
-    tokenNumber: 'ECG-202',
-    patientId: 'pat-rajesh',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:45 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 4 // Immediate next!
-  },
-  {
-    id: 'tok-ananya-ecg',
-    tokenNumber: 'ECG-203',
-    patientId: 'pat-ananya',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:05 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 10
-  },
-  {
-    id: 'tok-aarav-ecg',
-    tokenNumber: 'ECG-204',
-    patientId: 'pat-aarav',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 15
-  },
-
-  // Digital X-Ray (Only 1 person ahead)
-  {
-    id: 'tok-xray-w1',
-    tokenNumber: 'RAD-301',
-    patientId: 'patient-rad-w1',
-    testId: 'test-xray-chest',
-    departmentId: 'dept-radiology',
-    counterId: 'counter-rad-1',
-    priority: 'standard',
-    status: 'in_progress',
-    issuedAt: '08:40 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'tok-rajesh-xray',
-    tokenNumber: 'RAD-302',
-    patientId: 'pat-rajesh',
-    testId: 'test-xray-chest',
-    departmentId: 'dept-radiology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:45 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 5
-  },
-  {
-    id: 'tok-aarav-xray',
-    tokenNumber: 'RAD-303',
-    patientId: 'pat-aarav',
-    testId: 'test-xray-chest',
-    departmentId: 'dept-radiology',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 10
-  },
-
-  // Ultrasound (2 ahead)
-  {
-    id: 'tok-usg-w1',
-    tokenNumber: 'USG-401',
-    patientId: 'patient-usg-w1',
-    testId: 'test-usg-abdomen',
-    departmentId: 'dept-ultrasound',
-    counterId: 'counter-usg-1',
-    priority: 'standard',
-    status: 'in_progress',
-    issuedAt: '08:35 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'tok-usg-w2',
-    tokenNumber: 'USG-402',
-    patientId: 'patient-usg-w2',
-    testId: 'test-usg-abdomen',
-    departmentId: 'dept-ultrasound',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:40 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 14
-  },
-  {
-    id: 'tok-rajesh-usg',
-    tokenNumber: 'USG-403',
-    patientId: 'pat-rajesh',
-    testId: 'test-usg-abdomen',
-    departmentId: 'dept-ultrasound',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:45 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 28
-  },
-
-  // Finished tokens for completed history
-  {
-    id: 'tok-balbir-fbs',
-    tokenNumber: 'BIO-105',
-    patientId: 'pat-balbir',
+    id: 'tok-demo-rameshwar-fbs',
+    tokenNumber: 'B-14',
+    patientId: 'pat-rameshwar',
+    patientName: 'Rameshwar Sharma',
+    patientUhid: 'QC-2026-9411',
+    patientAge: 52,
+    patientGender: 'Male',
     testId: 'test-fbs',
+    testName: 'Blood Sugar Fasting',
     departmentId: 'dept-biochem',
     counterId: 'counter-bio-1',
-    priority: 'senior',
-    status: 'completed',
-    issuedAt: '08:15 AM',
-    calledAt: '08:20 AM',
-    completedAt: '08:32 AM',
-    queuePosition: 0,
+    roomNo: 'Room 14',
+    priority: 'standard',
+    status: 'waiting',
+    issuedAt: '09:15 AM',
+    queuePosition: 3,
+    estimatedWaitMinutes: 10
+  },
+  {
+    id: 'tok-demo-rameshwar-ecg',
+    tokenNumber: 'E-04',
+    patientId: 'pat-rameshwar',
+    patientName: 'Rameshwar Sharma',
+    patientUhid: 'QC-2026-9411',
+    patientAge: 52,
+    patientGender: 'Male',
+    testId: 'test-ecg',
+    testName: 'Heart Rhythm',
+    departmentId: 'dept-cardio',
+    counterId: 'counter-ecg-1',
+    roomNo: 'Room 04',
+    priority: 'standard',
+    status: 'waiting',
+    issuedAt: '09:15 AM',
+    queuePosition: 2,
+    estimatedWaitMinutes: 5
+  },
+  {
+    id: 'tok-demo-rameshwar-xray',
+    tokenNumber: 'X-02',
+    patientId: 'pat-rameshwar',
+    patientName: 'Rameshwar Sharma',
+    patientUhid: 'QC-2026-9411',
+    patientAge: 52,
+    patientGender: 'Male',
+    testId: 'test-xray-chest',
+    testName: 'Chest X-Ray',
+    departmentId: 'dept-radiology',
+    counterId: 'counter-rad-1',
+    roomNo: 'Room 08',
+    priority: 'standard',
+    status: 'waiting',
+    issuedAt: '09:15 AM',
+    queuePosition: 1,
     estimatedWaitMinutes: 0
   },
   {
-    id: 'tok-meera-fbs',
-    tokenNumber: 'BIO-101',
-    patientId: 'pat-meera',
-    testId: 'test-fbs',
-    departmentId: 'dept-biochem',
-    priority: 'senior',
+    id: 'tok-demo-rameshwar-cbc',
+    tokenNumber: 'BLD-24',
+    patientId: 'pat-rameshwar',
+    patientName: 'Rameshwar Sharma',
+    patientUhid: 'QC-2026-9411',
+    patientAge: 52,
+    patientGender: 'Male',
+    testId: 'test-cbc',
+    testName: 'Blood Collection',
+    departmentId: 'dept-pathology',
+    counterId: 'counter-phleb-1',
+    roomNo: 'Room 12',
+    priority: 'standard',
     status: 'waiting',
-    issuedAt: '08:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 6
-  },
-  {
-    id: 'tok-meera-ecg',
-    tokenNumber: 'ECG-205',
-    patientId: 'pat-meera',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '08:00 AM',
+    issuedAt: '09:15 AM',
     queuePosition: 4,
     estimatedWaitMinutes: 18
   },
+  // Background tokens ahead of Rameshwar at Room 14 (Biochemistry)
   {
-    id: 'tok-sunita-fbs',
-    tokenNumber: 'BIO-100',
-    patientId: 'pat-sunita',
+    id: 'tok-bg-bio-1',
+    tokenNumber: 'B-12',
+    patientId: 'pat-bg-1',
+    patientName: 'Sita Devi',
+    patientUhid: 'QC-2026-9408',
+    patientAge: 48,
+    patientGender: 'Female',
     testId: 'test-fbs',
+    testName: 'Blood Sugar Fasting',
     departmentId: 'dept-biochem',
     counterId: 'counter-bio-1',
+    roomNo: 'Room 14',
     priority: 'standard',
-    status: 'completed',
-    issuedAt: '07:35 AM',
-    calledAt: '07:40 AM',
-    completedAt: '07:52 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'tok-sunita-oct',
-    tokenNumber: 'EYE-101',
-    patientId: 'pat-sunita',
-    testId: 'test-oct-retina',
-    departmentId: 'dept-ophthalmology',
-    counterId: 'counter-eye-1',
-    priority: 'standard',
-    status: 'completed',
-    issuedAt: '08:00 AM',
-    calledAt: '08:05 AM',
-    completedAt: '08:20 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-
-  // Doctor OPD Consultation & Review Tokens
-  {
-    id: 'tok-opd-sunita',
-    tokenNumber: 'OPD-100',
-    patientId: 'pat-sunita',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-02',
-    doctorName: 'Dr. Priya Shenoy',
-    priority: 'standard',
-    status: 'reports_ready',
-    issuedAt: '08:25 AM',
+    status: 'in_progress',
+    issuedAt: '09:02 AM',
     queuePosition: 1,
-    estimatedWaitMinutes: 5
+    estimatedWaitMinutes: 2
   },
   {
-    id: 'tok-opd-rajesh',
-    tokenNumber: 'OPD-101',
-    patientId: 'pat-rajesh',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-01',
-    doctorName: 'Dr. Arvind Swaminathan',
-    priority: 'standard',
-    status: 'awaiting_lab_reports',
-    issuedAt: '08:45 AM',
-    queuePosition: 4,
-    estimatedWaitMinutes: 30
-  },
-  {
-    id: 'tok-opd-aarav',
-    tokenNumber: 'OPD-102',
-    patientId: 'pat-aarav',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-sarah',
-    doctorName: 'Dr. Sarah Khan',
-    priority: 'standard',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:15 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 24
-  },
-  {
-    id: 'tok-opd-balbir',
-    tokenNumber: 'OPD-103',
-    patientId: 'pat-balbir',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-02',
-    doctorName: 'Dr. Priya Shenoy',
-    priority: 'senior',
-    status: 'awaiting_lab_reports',
-    issuedAt: '08:15 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 16
-  },
-  {
-    id: 'tok-opd-ananya',
-    tokenNumber: 'OPD-104',
-    patientId: 'pat-ananya',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-01',
-    doctorName: 'Dr. Arvind Swaminathan',
-    priority: 'standard',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:05 AM',
-    queuePosition: 5,
-    estimatedWaitMinutes: 40
-  },
-  {
-    id: 'tok-opd-meera',
-    tokenNumber: 'OPD-105',
-    patientId: 'pat-meera',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-sarah',
-    doctorName: 'Dr. Sarah Khan',
-    priority: 'senior',
-    status: 'awaiting_lab_reports',
-    issuedAt: '08:00 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 16
-  },
-  {
-    id: 'tok-opd-rohan',
-    tokenNumber: 'OPD-106',
-    patientId: 'pat-rohan',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-sarah',
-    doctorName: 'Dr. Sarah Khan',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:30 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 8
-  }
-];
-
-export const BRANCH_QUEUE_TOKENS: QueueToken[] = [
-  // East Wing Diagnostic Clinic Queue Tokens
-  {
-    id: 'tok-east-fbs-1',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'E-BIO-101',
-    patientId: 'pat-east-ananya',
+    id: 'tok-bg-bio-2',
+    tokenNumber: 'B-13',
+    patientId: 'pat-bg-2',
+    patientName: 'Vinod Kumar',
+    patientUhid: 'QC-2026-9409',
+    patientAge: 61,
+    patientGender: 'Male',
     testId: 'test-fbs',
+    testName: 'Blood Sugar Fasting',
     departmentId: 'dept-biochem',
-    counterId: 'counter-east-bio-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 6
-  },
-  {
-    id: 'tok-east-ecg-1',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'E-ECG-101',
-    patientId: 'pat-east-ananya',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-east-ecg-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 5
-  },
-  {
-    id: 'tok-opd-east-ananya',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'OPD-E01',
-    patientId: 'pat-east-ananya',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-east-shenoy',
-    doctorName: 'Dr. Priya Shenoy',
-    priority: 'standard',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 8
-  },
-  {
-    id: 'tok-east-ecg-2',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'E-ECG-102',
-    patientId: 'pat-east-deepak',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-east-ecg-1',
+    counterId: 'counter-bio-1',
+    roomNo: 'Room 14',
     priority: 'senior',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 11
-  },
-  {
-    id: 'tok-east-rad-1',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'E-RAD-101',
-    patientId: 'pat-east-deepak',
-    testId: 'test-xray-chest',
-    departmentId: 'dept-radiology',
-    counterId: 'counter-east-rad-1',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 8
-  },
-  {
-    id: 'tok-opd-east-deepak',
-    hospitalId: 'hosp-east',
-    tokenNumber: 'OPD-E02',
-    patientId: 'pat-east-deepak',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-east-swaminathan',
-    doctorName: 'Dr. Arvind Swaminathan',
-    priority: 'senior',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:15 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 8
-  },
-  // Single-Doctor Practice (Dr. Sarah's Clinic) Queue Tokens
-  {
-    id: 'tok-cln-cbc-1',
-    hospitalId: 'hosp-clinic',
-    tokenNumber: 'CLN-B01',
-    patientId: 'pat-clinic-rohan',
-    testId: 'test-cbc',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-clinic-bld',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:30 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 4
-  },
-  {
-    id: 'tok-opd-cln-rohan',
-    hospitalId: 'hosp-clinic',
-    tokenNumber: 'CLN-101',
-    patientId: 'pat-clinic-rohan',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-clinic-sarah',
-    doctorName: 'Dr. Sarah Khan',
-    priority: 'standard',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:30 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 6
-  },
-  {
-    id: 'tok-cln-ecg-1',
-    hospitalId: 'hosp-clinic',
-    tokenNumber: 'CLN-C01',
-    patientId: 'pat-clinic-kamla',
-    testId: 'test-ecg',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-clinic-ecg',
-    priority: 'senior',
-    status: 'completed',
-    issuedAt: '09:40 AM',
-    completedAt: '09:48 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  },
-  {
-    id: 'tok-opd-cln-kamla',
-    hospitalId: 'hosp-clinic',
-    tokenNumber: 'CLN-102',
-    patientId: 'pat-clinic-kamla',
-    testId: 'opd-consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-clinic-sarah',
-    doctorName: 'Dr. Sarah Khan',
-    priority: 'senior',
-    status: 'reports_ready',
-    issuedAt: '09:40 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 4
-  }
-];
-
-export const QCARE_DEMO_QUEUE_TOKENS: QueueToken[] = [
-  // --- CARDIOLOGY (ECG) QUEUE ---
-  {
-    id: 'tok-rahul-ecg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'ECG-101',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 45,
-    patientGender: 'Male',
-    testId: 'test-ecg',
-    testName: '12-Lead Resting Electrocardiogram (ECG)',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-qdemo-ecg-1',
-    priority: 'standard',
-    doctorPriority: 'priority',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 8
-  },
-  {
-    id: 'tok-rajesh-ecg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'ECG-102',
-    patientId: 'pat-rajesh',
-    patientName: 'Rajesh Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 54,
-    patientGender: 'Male',
-    testId: 'test-ecg',
-    testName: '12-Lead Resting Electrocardiogram (ECG)',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-qdemo-ecg-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:05 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 16
-  },
-  {
-    id: 'tok-balbir-ecg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'ECG-103',
-    patientId: 'pat-balbir',
-    patientName: 'Col. Balbir Singh (Retd)',
-    patientUhid: 'QC-2026-8832',
-    patientAge: 73,
-    patientGender: 'Male',
-    testId: 'test-ecg',
-    testName: '12-Lead Resting Electrocardiogram (ECG)',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-qdemo-ecg-1',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '09:10 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 24
-  },
-  {
-    id: 'tok-aarav-ecg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'ECG-104',
-    patientId: 'pat-aarav',
-    patientName: 'Aarav Gupta',
-    patientUhid: 'QC-1082',
-    patientAge: 34,
-    patientGender: 'Male',
-    testId: 'test-ecg',
-    testName: '12-Lead Resting Electrocardiogram (ECG)',
-    departmentId: 'dept-cardio',
-    counterId: 'counter-qdemo-ecg-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:15 AM',
-    queuePosition: 4,
-    estimatedWaitMinutes: 32
-  },
-
-  // --- PATHOLOGY (BLOOD TEST) QUEUE ---
-  {
-    id: 'tok-rajesh-cbc',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BLD-101',
-    patientId: 'pat-rajesh',
-    patientName: 'Rajesh Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 54,
-    patientGender: 'Male',
-    testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC) with ESR',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-qdemo-bld-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:50 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 4
-  },
-  {
-    id: 'tok-aarav-cbc',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BLD-102',
-    patientId: 'pat-aarav',
-    patientName: 'Aarav Gupta',
-    patientUhid: 'QC-1082',
-    patientAge: 34,
-    patientGender: 'Male',
-    testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC) with ESR',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-qdemo-bld-2',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '08:55 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 8
-  },
-  {
-    id: 'tok-balbir-cbc',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BLD-103',
-    patientId: 'pat-balbir',
-    patientName: 'Col. Balbir Singh (Retd)',
-    patientUhid: 'QC-2026-8832',
-    patientAge: 73,
-    patientGender: 'Male',
-    testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC) with ESR',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-qdemo-bld-1',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '08:56 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 10
-  },
-  {
-    id: 'tok-meera-cbc',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BLD-104',
-    patientId: 'pat-meera',
-    patientName: 'Meera Joshi',
-    patientUhid: 'QC-2026-7719',
-    patientAge: 62,
-    patientGender: 'Female',
-    testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC) with ESR',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-qdemo-bld-2',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '08:58 AM',
-    queuePosition: 4,
-    estimatedWaitMinutes: 12
-  },
-  {
-    id: 'tok-rahul-cbc',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BLD-105',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 45,
-    patientGender: 'Male',
-    testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC) with ESR',
-    departmentId: 'dept-pathology',
-    counterId: 'counter-qdemo-bld-1',
-    priority: 'standard',
-    doctorPriority: 'priority',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 5,
-    estimatedWaitMinutes: 14
-  },
-
-  // --- ULTRASOUND QUEUE ---
-  {
-    id: 'tok-rahul-usg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'USG-101',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 45,
-    patientGender: 'Male',
-    testId: 'test-usg-abdomen',
-    testName: 'Ultrasound Abdomen & Pelvis (Full Bladder)',
-    departmentId: 'dept-ultrasound',
-    counterId: 'counter-qdemo-usg-1',
-    priority: 'standard',
-    doctorPriority: 'priority',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 12
-  },
-  {
-    id: 'tok-rajesh-usg',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'USG-102',
-    patientId: 'pat-rajesh',
-    patientName: 'Rajesh Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 54,
-    patientGender: 'Male',
-    testId: 'test-usg-abdomen',
-    testName: 'Ultrasound Abdomen & Pelvis (Full Bladder)',
-    departmentId: 'dept-ultrasound',
-    counterId: 'counter-qdemo-usg-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:10 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 24
-  },
-
-  // --- RADIOLOGY (X-RAY) QUEUE ---
-  {
-    id: 'tok-rahul-xray',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'RAD-101',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 45,
-    patientGender: 'Male',
-    testId: 'test-xray-chest',
-    testName: 'Digital Chest X-Ray (PA View)',
-    departmentId: 'dept-radiology',
-    counterId: 'counter-qdemo-xray-1',
-    priority: 'standard',
-    doctorPriority: 'priority',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 7
-  },
-  {
-    id: 'tok-rajesh-xray',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'RAD-102',
-    patientId: 'pat-rajesh',
-    patientName: 'Rajesh Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 54,
-    patientGender: 'Male',
-    testId: 'test-xray-chest',
-    testName: 'Digital Chest X-Ray (PA View)',
-    departmentId: 'dept-radiology',
-    counterId: 'counter-qdemo-xray-1',
-    priority: 'standard',
     status: 'waiting',
     issuedAt: '09:08 AM',
     queuePosition: 2,
-    estimatedWaitMinutes: 14
+    estimatedWaitMinutes: 6
   },
+  // Background token at Room 04 (Cardiology / ECG)
   {
-    id: 'tok-aarav-xray',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'RAD-103',
-    patientId: 'pat-aarav',
-    patientName: 'Aarav Gupta',
-    patientUhid: 'QC-1082',
-    patientAge: 34,
-    patientGender: 'Male',
-    testId: 'test-xray-chest',
-    testName: 'Digital Chest X-Ray (PA View)',
-    departmentId: 'dept-radiology',
-    counterId: 'counter-qdemo-xray-1',
+    id: 'tok-bg-ecg-1',
+    tokenNumber: 'E-03',
+    patientId: 'pat-bg-3',
+    patientName: 'Anita Singh',
+    patientUhid: 'QC-2026-9410',
+    patientAge: 35,
+    patientGender: 'Female',
+    testId: 'test-ecg',
+    testName: 'Heart Rhythm',
+    departmentId: 'dept-cardio',
+    counterId: 'counter-ecg-1',
+    roomNo: 'Room 04',
     priority: 'standard',
-    status: 'waiting',
+    status: 'in_progress',
     issuedAt: '09:12 AM',
-    queuePosition: 3,
-    estimatedWaitMinutes: 21
+    queuePosition: 1,
+    estimatedWaitMinutes: 3
   },
-
-  // --- BIOCHEMISTRY QUEUE ---
+  // Background tokens at Room 12 (Phlebotomy / Blood Lab - high congestion)
   {
-    id: 'tok-balbir-fbs',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BIO-101',
-    patientId: 'pat-balbir',
-    patientName: 'Col. Balbir Singh (Retd)',
-    patientUhid: 'QC-2026-8832',
-    patientAge: 73,
+    id: 'tok-bg-bld-1',
+    tokenNumber: 'BLD-21',
+    patientId: 'pat-bg-4',
+    patientName: 'Manish Verma',
+    patientUhid: 'QC-2026-9401',
+    patientAge: 29,
     patientGender: 'Male',
-    testId: 'test-fbs',
-    testName: 'Fasting Blood Sugar & HbA1c Profile',
-    departmentId: 'dept-biochem',
-    counterId: 'counter-qdemo-bio-1',
-    priority: 'senior',
+    testId: 'test-cbc',
+    testName: 'Blood Collection',
+    departmentId: 'dept-pathology',
+    counterId: 'counter-phleb-1',
+    roomNo: 'Room 12',
+    priority: 'standard',
     status: 'waiting',
     issuedAt: '08:50 AM',
     queuePosition: 1,
     estimatedWaitMinutes: 5
   },
   {
-    id: 'tok-meera-fbs',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'BIO-102',
-    patientId: 'pat-meera',
-    patientName: 'Meera Joshi',
-    patientUhid: 'QC-2026-7719',
-    patientAge: 62,
+    id: 'tok-bg-bld-2',
+    tokenNumber: 'BLD-22',
+    patientId: 'pat-bg-5',
+    patientName: 'Rekha Gupta',
+    patientUhid: 'QC-2026-9402',
+    patientAge: 44,
     patientGender: 'Female',
-    testId: 'test-fbs',
-    testName: 'Fasting Blood Sugar & HbA1c Profile',
-    departmentId: 'dept-biochem',
-    counterId: 'counter-qdemo-bio-1',
-    priority: 'senior',
+    testId: 'test-cbc',
+    testName: 'Blood Collection',
+    departmentId: 'dept-pathology',
+    counterId: 'counter-phleb-1',
+    roomNo: 'Room 12',
+    priority: 'standard',
     status: 'waiting',
     issuedAt: '08:55 AM',
     queuePosition: 2,
     estimatedWaitMinutes: 10
   },
-
-  // --- OPHTHALMOLOGY (EYE) QUEUE ---
   {
-    id: 'tok-ananya-eye',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'EYE-101',
-    patientId: 'pat-ananya',
-    patientName: 'Ananya Deshmukh',
-    patientUhid: 'QC-2026-9904',
-    patientAge: 28,
-    patientGender: 'Female',
-    testId: 'test-vision',
-    testName: 'Comprehensive Refraction & Slit-Lamp Exam',
-    departmentId: 'dept-ophthalmology',
-    counterId: 'counter-qdemo-eye-1',
-    priority: 'standard',
-    status: 'waiting',
-    issuedAt: '09:00 AM',
-    queuePosition: 1,
-    estimatedWaitMinutes: 10
-  },
-  {
-    id: 'tok-meera-eye',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'EYE-102',
-    patientId: 'pat-meera',
-    patientName: 'Meera Joshi',
-    patientUhid: 'QC-2026-7719',
-    patientAge: 62,
-    patientGender: 'Female',
-    testId: 'test-vision',
-    testName: 'Comprehensive Refraction & Slit-Lamp Exam',
-    departmentId: 'dept-ophthalmology',
-    counterId: 'counter-qdemo-eye-1',
-    priority: 'senior',
-    status: 'waiting',
-    issuedAt: '09:05 AM',
-    queuePosition: 2,
-    estimatedWaitMinutes: 20
-  },
-
-  // --- OPD TOKEN (RAHUL SHARMA) ---
-  {
-    id: 'tok-opd-rahul',
-    hospitalId: 'qcare-demo',
-    tokenNumber: 'OPD-201',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    patientUhid: 'QC-2026-9411',
-    patientAge: 45,
+    id: 'tok-bg-bld-3',
+    tokenNumber: 'BLD-23',
+    patientId: 'pat-bg-6',
+    patientName: 'Harish Chandra',
+    patientUhid: 'QC-2026-9403',
+    patientAge: 58,
     patientGender: 'Male',
-    testId: 'opd-consultation',
-    testName: 'OPD Doctor Consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-01',
-    doctorName: 'Dr. Arvind Swaminathan',
-    priority: 'standard',
-    doctorPriority: 'priority',
-    status: 'awaiting_lab_reports',
-    issuedAt: '09:00 AM',
-    queuePosition: 0,
-    estimatedWaitMinutes: 0
-  }
-];
-
-export const ALL_INITIAL_QUEUE_TOKENS: QueueToken[] = [...QCARE_DEMO_QUEUE_TOKENS, ...INITIAL_QUEUE_TOKENS, ...BRANCH_QUEUE_TOKENS];
-
-export const INITIAL_CLINICAL_REPORTS: ClinicalReport[] = [
-  {
-    id: 'rep-sunita-fbs',
-    testId: 'test-fbs',
-    testName: 'Fasting Blood Sugar & HbA1c Profile',
-    patientId: 'pat-sunita',
-    patientUhid: 'QC-2026-6612',
-    patientName: 'Sunita Patel',
-    technicianName: 'Farhana Sheikh',
-    counterId: 'counter-bio-1',
-    timestamp: '07:55 AM Today',
-    status: 'verified_by_doctor',
-    summary: 'Mild hyperglycemia detected. Elevated HbA1c indicative of borderline diabetic control.',
-    metrics: [
-      {
-        label: 'Fasting Plasma Glucose',
-        value: '138',
-        unit: 'mg/dL',
-        normalRange: '70 - 99 mg/dL',
-        flag: 'high'
-      },
-      {
-        label: 'Glycated Hemoglobin (HbA1c)',
-        value: '6.8',
-        unit: '%',
-        normalRange: '< 5.7%',
-        flag: 'high'
-      },
-      {
-        label: 'Estimated Average Glucose (eAG)',
-        value: '148',
-        unit: 'mg/dL',
-        normalRange: '< 117 mg/dL',
-        flag: 'high'
-      }
-    ],
-    doctorNotes: 'Prescribed Metformin 500mg OD post breakfast. Advised dietary consultation.',
-    doctorSignature: 'Dr. Priya Shenoy, MD (Internal Med)'
-  },
-  {
-    id: 'rep-sunita-oct',
-    testId: 'test-oct-retina',
-    testName: 'Digital Retinal Fundus & OCT Scan',
-    patientId: 'pat-sunita',
-    patientUhid: 'QC-2026-6612',
-    patientName: 'Sunita Patel',
-    technicianName: 'Gaurav Sen',
-    counterId: 'counter-eye-1',
-    timestamp: '08:25 AM Today',
-    status: 'uploaded',
-    summary: 'Clear macula bilaterally. No signs of proliferative diabetic retinopathy or macular edema.',
-    metrics: [
-      {
-        label: 'Central Subfield Thickness (OD)',
-        value: '242',
-        unit: 'µm',
-        normalRange: '230 - 270 µm',
-        flag: 'normal'
-      },
-      {
-        label: 'Central Subfield Thickness (OS)',
-        value: '238',
-        unit: 'µm',
-        normalRange: '230 - 270 µm',
-        flag: 'normal'
-      },
-      {
-        label: 'Intraocular Pressure (Goldmann)',
-        value: '15.5',
-        unit: 'mmHg',
-        normalRange: '10 - 21 mmHg',
-        flag: 'normal'
-      }
-    ],
-    doctorNotes: undefined,
-    doctorSignature: undefined
-  },
-  {
-    id: 'rep-balbir-fbs',
-    testId: 'test-fbs',
-    testName: 'Fasting Blood Sugar & HbA1c Profile',
-    patientId: 'pat-balbir',
-    patientUhid: 'QC-2026-8832',
-    patientName: 'Col. Balbir Singh (Retd)',
-    technicianName: 'Farhana Sheikh',
-    counterId: 'counter-bio-1',
-    timestamp: '08:35 AM Today',
-    status: 'uploaded',
-    summary: 'Well-controlled fasting glycemic levels. No acute ketoacidosis risk.',
-    metrics: [
-      {
-        label: 'Fasting Blood Glucose',
-        value: '104',
-        unit: 'mg/dL',
-        normalRange: '70 - 99 mg/dL',
-        flag: 'normal'
-      },
-      {
-        label: 'HbA1c',
-        value: '5.9',
-        unit: '%',
-        normalRange: '< 5.7%',
-        flag: 'normal'
-      }
-    ]
-  }
-];
-
-export const BRANCH_CLINICAL_REPORTS: ClinicalReport[] = [
-  // Dr. Sarah's Family Practice (Single-Doctor Clinic)
-  {
-    id: 'rep-cln-kamla-ecg',
-    hospitalId: 'hosp-clinic',
-    testId: 'test-ecg',
-    testName: '12-Lead Resting Electrocardiogram (ECG)',
-    patientId: 'pat-clinic-kamla',
-    patientUhid: 'QC-CLN-502',
-    patientName: 'Kamla Devi',
-    technicianName: 'Sister Anjali (Clinic Nurse)',
-    counterId: 'counter-clinic-ecg',
-    timestamp: '09:48 AM Today',
-    status: 'uploaded',
-    summary: 'Sinus bradycardia (58 bpm). Normal axis. Left ventricular hypertrophy voltage criteria noted. No acute ST elevations.',
-    metrics: [
-      {
-        label: 'Heart Rate',
-        value: '58',
-        unit: 'bpm',
-        normalRange: '60 - 100 bpm',
-        flag: 'low'
-      },
-      {
-        label: 'PR Interval',
-        value: '162',
-        unit: 'ms',
-        normalRange: '120 - 200 ms',
-        flag: 'normal'
-      },
-      {
-        label: 'QRS Axis',
-        value: '+15',
-        unit: 'degrees',
-        normalRange: '-30 to +90',
-        flag: 'normal'
-      },
-      {
-        label: 'Sokolow-Lyon Index',
-        value: '3.8',
-        unit: 'mV',
-        normalRange: '< 3.5 mV',
-        flag: 'high'
-      }
-    ]
-  },
-  // East Diagnostic Clinic Branch Report
-  {
-    id: 'rep-east-ananya-cbc',
-    hospitalId: 'hosp-east',
     testId: 'test-cbc',
-    testName: 'Complete Blood Count (CBC / Hemogram)',
-    patientId: 'pat-east-ananya',
-    patientUhid: 'QC-EAST-201',
-    patientName: 'Ananya Sen',
-    technicianName: 'Gaurav Sen',
-    counterId: 'counter-east-bld-1',
-    timestamp: '09:12 AM Today',
-    status: 'uploaded',
-    summary: 'Mild microcytic hypochromic red blood cells. Platelets and WBC count within antenatal limits.',
-    metrics: [
-      {
-        label: 'Hemoglobin (Hb)',
-        value: '10.8',
-        unit: 'g/dL',
-        normalRange: '12.0 - 15.5 g/dL',
-        flag: 'low'
-      },
-      {
-        label: 'Total Leucocyte Count (TLC)',
-        value: '8,200',
-        unit: '/µL',
-        normalRange: '4,000 - 11,000 /µL',
-        flag: 'normal'
-      },
-      {
-        label: 'Platelet Count',
-        value: '210,000',
-        unit: '/µL',
-        normalRange: '150,000 - 450,000 /µL',
-        flag: 'normal'
-      }
-    ]
-  }
-];
-
-export const ALL_INITIAL_CLINICAL_REPORTS: ClinicalReport[] = [
-  ...INITIAL_CLINICAL_REPORTS.map(r => ({ ...r, hospitalId: r.hospitalId || 'hosp-metro' })),
-  ...BRANCH_CLINICAL_REPORTS
-];
-
-export const DEMO_STAFF: StaffMember[] = [
-  {
-    id: 'staff-super-01',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-SUPER-01',
-    name: 'Dr. Vikram Malhotra',
-    email: 'superadmin@qcare.com',
-    phone: '+91 99000 00001',
-    role: 'super_admin',
-    status: 'active',
-    password: 'admin123'
-  },
-  {
-    id: 'staff-admin-01',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-ADMIN-01',
-    name: 'Anita Rao (Hospital Administrator)',
-    email: 'admin@qcare.demo',
-    phone: '+91 99000 00002',
-    role: 'hospital_admin',
-    status: 'active',
-    password: 'admin123'
-  },
-  {
-    id: 'staff-asst-01',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-ASST-01',
-    name: 'Pooja Verma (Doctor Assistant)',
-    email: 'assistant@qcare.demo',
-    phone: '+91 99000 00003',
-    role: 'doctor_assistant',
-    status: 'active',
-    password: 'staff123'
-  },
-  {
-    id: 'staff-rec-01',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-REC-01',
-    name: 'Kavita Sharma (Reception Officer)',
-    email: 'reception@qcare.demo',
-    phone: '+91 99000 00004',
-    role: 'reception',
-    status: 'active',
-    password: 'staff123'
-  },
-  {
-    id: 'staff-lab-usg',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-USG-01',
-    name: 'Dr. Neha Sen (USG Sonographer)',
-    email: 'lab.usg@qcare.demo',
-    phone: '+91 99000 00005',
-    role: 'lab_staff',
-    assignedLabId: 'dept-ultrasound',
-    assignedLabName: 'Ultrasonography & Doppler Unit',
-    status: 'active',
-    password: 'staff123'
-  },
-  {
-    id: 'staff-lab-ecg',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-ECG-01',
-    name: 'Rohan Gupta (Cardiac Tech)',
-    email: 'lab.ecg@qcare.demo',
-    phone: '+91 99000 00006',
-    role: 'lab_staff',
-    assignedLabId: 'dept-cardio',
-    assignedLabName: 'Cardiology Diagnostic Suite (ECG)',
-    status: 'active',
-    password: 'staff123'
-  },
-  {
-    id: 'staff-lab-blood',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-BLD-01',
-    name: 'Sumanth Nair (Sr. Phlebotomist)',
-    email: 'lab.blood@qcare.demo',
-    phone: '+91 99000 00007',
-    role: 'lab_staff',
-    assignedLabId: 'dept-pathology',
-    assignedLabName: 'Hematology & Clinical Pathology (Blood Test)',
-    status: 'active',
-    password: 'staff123'
-  },
-  {
-    id: 'staff-lab-xray',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-RAD-01',
-    name: 'Arun Verma (Radiographer)',
-    email: 'lab.xray@qcare.demo',
-    phone: '+91 99000 00008',
-    role: 'lab_staff',
-    assignedLabId: 'dept-radiology',
-    assignedLabName: 'Radiology & Digital Imaging (X-Ray)',
-    status: 'active',
-    password: 'staff123'
-  }
-];
-
-export const DEMO_MACHINES: LabMachine[] = [
-  {
-    id: 'mach-ecg-1',
-    hospitalId: 'qcare-demo',
-    departmentId: 'dept-cardio',
-    name: '12-Lead Digital ECG Machine A',
-    totalCount: 1,
-    activeCount: 1,
-    status: 'operational'
-  },
-  {
-    id: 'mach-bld-1',
-    hospitalId: 'qcare-demo',
+    testName: 'Blood Collection',
     departmentId: 'dept-pathology',
-    name: 'Phlebotomy Sample Draw Stations',
-    totalCount: 2,
-    activeCount: 2,
-    status: 'operational'
-  },
-  {
-    id: 'mach-usg-1',
-    hospitalId: 'qcare-demo',
-    departmentId: 'dept-ultrasound',
-    name: 'Color Doppler Sonography System Alpha',
-    totalCount: 2,
-    activeCount: 1,
-    status: 'operational',
-    notes: 'Machine 2 undergoing scheduled probe calibration'
-  },
-  {
-    id: 'mach-rad-1',
-    hospitalId: 'qcare-demo',
-    departmentId: 'dept-radiology',
-    name: 'Digital High-Frequency X-Ray Unit',
-    totalCount: 2,
-    activeCount: 1,
-    status: 'operational'
-  },
-  {
-    id: 'mach-bio-1',
-    hospitalId: 'qcare-demo',
-    departmentId: 'dept-biochem',
-    name: 'Automated Clinical Chemistry Analyzer',
-    totalCount: 2,
-    activeCount: 2,
-    status: 'operational'
-  },
-  {
-    id: 'mach-eye-1',
-    hospitalId: 'qcare-demo',
-    departmentId: 'dept-ophthalmology',
-    name: 'Digital Fundus & OCT Scanner',
-    totalCount: 1,
-    activeCount: 1,
-    status: 'operational'
+    counterId: 'counter-phleb-1',
+    roomNo: 'Room 12',
+    priority: 'standard',
+    status: 'waiting',
+    issuedAt: '09:00 AM',
+    queuePosition: 3,
+    estimatedWaitMinutes: 15
   }
 ];
 
-export const INITIAL_AUDIT_LOGS: AuditLog[] = [
+export const DEMO_SCENARIO_PATIENTS_LIST: Patient[] = [
+  DEMO_SCENARIO_PATIENT,
   {
-    id: 'log-01',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-ASST-01',
-    staffName: 'Pooja Verma',
-    staffRole: 'doctor_assistant',
-    action: 'PATIENT_JOURNEY_CREATED',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    newStatus: 'checked_in',
-    details: 'Prescribed: USG Abdomen, CBC Blood Test, 12-Lead ECG, Chest X-Ray. Doctor Priority: Priority.',
-    timestamp: '09:02 AM Today'
+    id: 'pat-bg-1',
+    uhid: 'QC-2026-9408',
+    qrSessionId: 'QC-9408',
+    name: 'Sita Devi',
+    age: 48,
+    gender: 'Female',
+    contact: '+91 98111 22334',
+    priority: 'standard',
+    prescribedDoctorId: 'doc-verma',
+    prescribedDoctorName: 'Dr. Rajesh Verma',
+    prescribedDoctorRoom: 'Room 104',
+    chiefComplaint: 'Routine diabetes checkup',
+    prescribedTests: ['test-fbs'],
+    completedTests: [],
+    activeTokenIds: { 'test-fbs': 'tok-bg-bio-1' },
+    status: 'in_test',
+    assignedSmartRoute: ['test-fbs'],
+    registrationTime: '09:00 AM',
+    opdTokenNumber: 'OPD-11',
+    doctorReviewStatus: 'awaiting_lab_reports'
   },
   {
-    id: 'log-02',
-    hospitalId: 'qcare-demo',
-    staffId: 'STAFF-REC-01',
-    staffName: 'Kavita Sharma',
-    staffRole: 'reception',
-    action: 'QR_BOARDING_PASS_PRINTED',
-    patientId: 'pat-rahul-sharma',
-    patientName: 'Rahul Sharma',
-    details: 'Thermal QR boarding slip generated with secure token token-rahul-987645',
-    timestamp: '09:04 AM Today'
+    id: 'pat-bg-2',
+    uhid: 'QC-2026-9409',
+    qrSessionId: 'QC-9409',
+    name: 'Vinod Kumar',
+    age: 61,
+    gender: 'Male',
+    contact: '+91 98222 33445',
+    priority: 'senior',
+    prescribedDoctorId: 'doc-verma',
+    prescribedDoctorName: 'Dr. Rajesh Verma',
+    prescribedDoctorRoom: 'Room 104',
+    chiefComplaint: 'Hypertension and dizziness',
+    prescribedTests: ['test-fbs', 'test-ecg'],
+    completedTests: [],
+    activeTokenIds: { 'test-fbs': 'tok-bg-bio-2' },
+    status: 'in_transit',
+    assignedSmartRoute: ['test-fbs', 'test-ecg'],
+    registrationTime: '09:05 AM',
+    opdTokenNumber: 'OPD-12',
+    doctorReviewStatus: 'awaiting_lab_reports'
+  },
+  {
+    id: 'pat-bg-3',
+    uhid: 'QC-2026-9410',
+    qrSessionId: 'QC-9410',
+    name: 'Anita Singh',
+    age: 35,
+    gender: 'Female',
+    contact: '+91 98333 44556',
+    priority: 'standard',
+    prescribedDoctorId: 'doc-verma',
+    prescribedDoctorName: 'Dr. Rajesh Verma',
+    prescribedDoctorRoom: 'Room 104',
+    chiefComplaint: 'Heart flutter during work',
+    prescribedTests: ['test-ecg'],
+    completedTests: [],
+    activeTokenIds: { 'test-ecg': 'tok-bg-ecg-1' },
+    status: 'in_test',
+    assignedSmartRoute: ['test-ecg'],
+    registrationTime: '09:10 AM',
+    opdTokenNumber: 'OPD-13',
+    doctorReviewStatus: 'awaiting_lab_reports'
   }
 ];
-
-export const DEMO_FLOOR_ROOMS: HospitalFloorRoom[] = [
-  {
-    id: 'rm-usg-215',
-    hospitalId: 'qcare-demo',
-    floor: 'Ground Floor',
-    wing: 'West Wing',
-    roomNumber: 'Room G-215',
-    departmentId: 'dept-ultrasound',
-    departmentName: 'Ultrasonography & Doppler Unit',
-    description: 'High-resolution sonography suite, 2 scanning bays'
-  },
-  {
-    id: 'rm-bld-102',
-    hospitalId: 'qcare-demo',
-    floor: 'Ground Floor',
-    wing: 'East Wing',
-    roomNumber: 'Room G-102',
-    departmentId: 'dept-pathology',
-    departmentName: 'Hematology & Clinical Pathology',
-    description: 'Blood sample collection phlebotomy chairs 1 & 2'
-  },
-  {
-    id: 'rm-ecg-104',
-    hospitalId: 'qcare-demo',
-    floor: '1st Floor',
-    wing: 'Central Tower',
-    roomNumber: 'Room 104-A',
-    departmentId: 'dept-cardio',
-    departmentName: 'Cardiology Diagnostic Suite',
-    description: '12-lead ECG rhythm recording chamber'
-  },
-  {
-    id: 'rm-xray-b108',
-    hospitalId: 'qcare-demo',
-    floor: 'Basement 1',
-    wing: 'West Wing',
-    roomNumber: 'Room B1-08',
-    departmentId: 'dept-radiology',
-    departmentName: 'Radiology & Digital Imaging',
-    description: 'Digital X-Ray PA/Lateral lead-shielded vault'
-  }
-];
-
-

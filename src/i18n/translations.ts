@@ -1,172 +1,225 @@
-// ==========================================
-// Q-Care Multilingual Translation Dictionary
-// English & Hindi (हिंदी)
-// ==========================================
+/**
+ * Natural English & Hindi Dictionaries for Q-Care v2
+ * Note: Uses natural conversational Hindi and international numerals (1, 2, 3, 12).
+ */
 
-export type Language = 'en' | 'hi';
-
-export interface TranslationDictionary {
-  appName: string;
-  appTagline: string;
-  nextStepDirective: string;
-  nextStepBadge: string;
-  proceedImmediately: string;
-  allTestsCompletedTitle: string;
-  allTestsCompletedDesc: string;
-  returnToDoctorAdvice: string;
-  recommendedNextTest: string;
-  currentQueueStatus: string;
-  patientsWaitingAhead: string;
-  estimatedWaitTime: string;
-  approxRange: string;
-  labLocation: string;
-  room: string;
-  floor: string;
-  wing: string;
-  viewRoute: string;
-  hideRoute: string;
-  preparationInstructions: string;
-  doctorPriority: string;
-  doctorPriorityUrgent: string;
-  doctorPriorityEmergencyAlert: string;
-  doctorPriorityPriority: string;
-  doctorPriorityNormal: string;
-  statusPending: string;
-  statusRecommended: string;
-  statusWaiting: string;
-  statusInProgress: string;
-  statusCompleted: string;
-  statusUnavailable: string;
-  emergencyProtocol: string;
-  printReceipt: string;
-  qrScanInstruction: string;
-  kioskTitle: string;
-  kioskSubtitle: string;
-  kioskEnterPlaceholder: string;
-  kioskCheckButton: string;
-  kioskNotFound: string;
-  completedTestsCount: string;
-  remainingTestsCount: string;
-  timeSavedMsg: string;
-  askQbie: string;
-  qbieOnline: string;
-  mins: string;
-  wait: string;
-  nextStep: string;
-  completed: string;
-  upNext: string;
-  waiting: string;
-  token: string;
-  estimatedWait: string;
-}
-
-export const TRANSLATIONS: Record<Language, TranslationDictionary> = {
+export const TRANSLATIONS = {
   en: {
-    appName: 'QCare',
-    appTagline: 'Hospital Diagnostic Queue Management & Smart Patient Routing',
-    nextStepDirective: 'NEXT STEP',
-    nextStepBadge: 'Recommended Next Destination',
-    proceedImmediately: 'Token Called! Please proceed inside immediately.',
-    allTestsCompletedTitle: 'All Diagnostic Tests Completed',
-    allTestsCompletedDesc: 'All your prescribed clinical samples and scans have been verified.',
-    returnToDoctorAdvice: 'Please return to your doctor / consultation area for your final review.',
-    recommendedNextTest: 'Recommended Next Test',
-    currentQueueStatus: 'Live Queue Status',
-    patientsWaitingAhead: 'patients waiting ahead',
-    estimatedWaitTime: 'Estimated Wait Time',
-    approxRange: 'Approx.',
-    labLocation: 'Lab Location',
+    hospitalName: 'Clinic & Diagnostics',
+    tagline: 'Outpatient Diagnostics & Smart Patient Boarding Hub',
+    doctorName: 'Attending Physician',
+    doctorSpecialty: 'Consultant Physician',
+    doctorRoom: 'OPD Chamber',
+
+    // Navigation / Roles
+    portalDoctor: 'Doctor OPD Console',
+    portalPatient: 'Patient Boarding Pass',
+    portalLab: 'Lab Diagnostic Bay',
+    loadDemo: 'Load Demo Scenario',
+    cleanSlate: 'Reset to Clean Slate',
+    demoActive: 'Demo Scenario Active (Rameshwar Sharma)',
+
+    // Common
+    patient: 'Patient',
+    age: 'Age',
+    gender: 'Gender',
+    male: 'Male',
+    female: 'Female',
+    other: 'Other',
+    phone: 'Mobile',
+    uhid: 'UHID',
+    token: 'Token',
+    status: 'Status',
     room: 'Room',
-    floor: 'Floor',
-    wing: 'Wing',
-    viewRoute: 'View Indoor Map Route',
-    hideRoute: 'Close Map',
-    preparationInstructions: 'Preparation Instructions',
-    doctorPriority: 'Doctor Priority',
-    doctorPriorityUrgent: 'Urgent',
-    doctorPriorityEmergencyAlert: 'Urgent: Follow hospital emergency protocol immediately.',
-    doctorPriorityPriority: 'Priority Fast-Track',
-    doctorPriorityNormal: 'Standard Normal',
-    statusPending: 'Pending',
-    statusRecommended: 'Recommended Up-Next',
-    statusWaiting: 'Waiting in Queue',
-    statusInProgress: 'In Progress',
-    statusCompleted: 'Completed & Verified',
-    statusUnavailable: 'Temporarily Unavailable',
-    emergencyProtocol: 'Follow Hospital Emergency Protocol',
-    printReceipt: 'Print Thermal QR Receipt',
-    qrScanInstruction: 'Scan this QR to view your live diagnostic journey on your mobile device.',
-    kioskTitle: 'Hospital Diagnostic Kiosk',
-    kioskSubtitle: 'Enter your Patient ID, Token, or Mobile number to view your live queue position.',
-    kioskEnterPlaceholder: 'Enter UHID / Token (e.g. QC-2026-9411 or RAHUL-45)',
-    kioskCheckButton: 'Check Live Status',
-    kioskNotFound: 'No active patient journey found with this identifier. Please verify at reception.',
-    completedTestsCount: 'Completed Tests',
-    remainingTestsCount: 'Remaining Tests',
-    timeSavedMsg: 'Minutes Saved with Smart Routing',
-    askQbie: 'Ask Q-Bie AI',
-    qbieOnline: 'Online • Real-Time Queue Companion',
+    estimatedWait: 'Est. Wait',
+    peopleAhead: 'People Ahead',
+    minutes: 'mins',
     mins: 'mins',
-    wait: 'wait',
-    nextStep: 'Next Step',
-    completed: 'Completed',
     upNext: 'Up Next',
-    waiting: 'Waiting',
-    token: 'Your Token',
-    estimatedWait: 'Estimated Wait'
+    nextStep: 'Next Step',
+    floor: 'Floor',
+    completed: 'Completed',
+    listenAudio: 'Listen Voice',
+    listenAudioTooltip: 'Listen to spoken directions and wait time in English',
+    audioPlaying: 'Playing...',
+    printSlip: 'Print Thermal QR Slip',
+    close: 'Close',
+    save: 'Save',
+    submit: 'Submit',
+    cancel: 'Cancel',
+    critical: 'CRITICAL',
+    normal: 'NORMAL',
+    high: 'HIGH',
+    low: 'LOW',
+
+    // Patient Portal
+    currentDirectiveTitle: 'CURRENT DIRECTIVE (GO HERE NOW)',
+    proceedTo: 'Proceed to',
+    directionsLabel: 'Navigation Route',
+    preparationAlert: 'Preparation Instruction',
+    nextInvestigations: 'Upcoming Investigations',
+    returnToDoctor: 'Return to Doctor Consultation',
+    returnToDoctorSubtitle: 'Room 104 • Final Prescription & Sign-off',
+    reportsDrawerTitle: 'Verified Lab Reports',
+    noReportsYet: 'No verified reports available yet. Reports will appear once technician submits test findings.',
+    chimeAlertTitle: 'BELL CHIMED! YOUR NUMBER IS CALLED',
+    chimeAlertSubtitle: 'Please enter immediately inside',
+    manualSwitchPrompt: 'Need to do another test first? Select alternative:',
+    switchButton: 'Switch Priority',
+    markDoneToggle: 'Mark Already Sampled',
+    markAlreadyDone: 'Mark Already Done',
+    markAlreadyDoneDesc: 'Already got this test done earlier or hold an external report?',
+    markDoneSuccess: 'Investigation marked as already done. Next route updated.',
+    skipNextSuccess: 'Token skipped. Serving next in queue.',
+    upcomingInBay: 'Upcoming Queue in this Bay',
+    callThisToken: 'Call Token',
+    printInitialSlip: 'Print OPD Slip',
+    registerAndPrint: 'Register & Print Thermal Slip',
+
+    // Doctor Portal
+    opdQueueTitle: 'Today\'s Walk-In Patients',
+    allWalkins: 'All Walk-Ins',
+    waitingOpd: 'Waiting OPD',
+    inDiagnostics: 'In Diagnostics',
+    reportsReady: 'Reports Ready',
+    discharged: 'Discharged',
+    registerNewWalkin: 'Register New Walk-In Patient',
+    fullName: 'Full Name',
+    chiefComplaint: 'Chief Complaints / Symptoms',
+    priorityTitle: 'Clinical Priority',
+    priorityNormal: 'Standard Priority',
+    priorityUrgent: 'Urgent / Emergency',
+    prescribeInvestigations: 'Prescribe Investigations (1-Click Selection)',
+    selectedTests: 'Selected Investigations',
+    prescribeAndPrint: 'Prescribe & Generate Thermal QR Slip',
+    doctorConclusion: 'Doctor Conclusion & Discharge Prescription',
+    doctorConclusionPlaceholder: 'Enter final diagnosis, prescription (e.g. Tab Sorbitrate 5mg SOS), and home care advice...',
+    verifyAndDischargeBtn: 'Verify Reports & Sign-off Discharge',
+    noPatientSelected: 'Select a patient from the OPD queue on the left to review records or prescribe tests.',
+
+    // Lab Portal
+    selectDiagnosticBay: 'Select Diagnostic Bay / Station',
+    currentServing: 'CURRENT SERVING TOKEN',
+    callPatientBtn: 'Call Patient (Chime + Speech)',
+    onHoldBtn: 'On-Hold (No Show)',
+    recallBtn: 'Recall Token',
+    skipNextBtn: 'Skip / Next',
+    enterTestResults: 'Enter Clinical Test Results',
+    normalRange: 'Normal Reference Range',
+    technicianRemarks: 'Technician Remarks / Observations',
+    technicianRemarksPlaceholder: 'E.g. Fasting sample collected without hemolysis. Advised 2-hr PPBS...',
+    submitTestCompleteBtn: 'Submit Results & Send to Doctor (Complete Test)',
+    noWaitingTokens: 'No patients waiting in queue for this bay.',
+    onHoldTrayTitle: 'On-Hold Patients (No Show Tray)',
+    emptyOnHold: 'No patients on hold.'
   },
   hi: {
-    appName: 'क्यू-केयर (QCare)',
-    appTagline: 'अस्पताल जांच कतार प्रबंधन एवं स्मार्ट मरीज रूटिंग प्रणाली',
-    nextStepDirective: 'अगला कदम (NEXT STEP)',
-    nextStepBadge: 'सुझाया गया अगला जांच केंद्र',
-    proceedImmediately: 'टोकन बुलाया गया! कृपया तुरंत अंदर जाएं।',
-    allTestsCompletedTitle: 'सभी जांच सफलतापूर्वक पूर्ण हो चुकी हैं',
-    allTestsCompletedDesc: 'आपके डॉक्टर द्वारा लिखी गई सभी जांचें और रिपोर्ट्स पूरी हो चुकी हैं।',
-    returnToDoctorAdvice: 'कृपया अंतिम परामर्श एवं रिपोर्ट समीक्षा के लिए अपने डॉक्टर के पास वापस जाएं।',
-    recommendedNextTest: 'सुझाया गया अगला टेस्ट',
-    currentQueueStatus: 'लाइव कतार स्थिति',
-    patientsWaitingAhead: 'मरीज आपसे आगे कतार में हैं',
-    estimatedWaitTime: 'अनुमानित प्रतीक्षा समय',
-    approxRange: 'लगभग',
-    labLocation: 'लैब का स्थान',
-    room: 'कमरा संख्या',
-    floor: 'मंजिल',
-    wing: 'विंग / ब्लॉक',
-    viewRoute: 'रास्ता देखें (अस्पताल नक्शा)',
-    hideRoute: 'नक्शा बंद करें',
-    preparationInstructions: 'जांच से पहले तैयारी निर्देश',
-    doctorPriority: 'डॉक्टर प्राथमिकता स्तर',
-    doctorPriorityUrgent: 'अति-आवश्यक (Urgent)',
-    doctorPriorityEmergencyAlert: 'अति-आवश्यक: तत्काल अस्पताल आपातकालीन प्रोटोकॉल का पालन करें।',
-    doctorPriorityPriority: 'प्राथमिकता (Priority)',
-    doctorPriorityNormal: 'सामान्य (Normal)',
-    statusPending: 'लंबित (Pending)',
-    statusRecommended: 'सुझाया गया अगला',
-    statusWaiting: 'कतार में प्रतीक्षारत',
-    statusInProgress: 'जांच प्रक्रिया जारी है',
-    statusCompleted: 'सत्यापित एवं पूर्ण',
-    statusUnavailable: 'अस्थायी रूप से अनुपलब्ध',
-    emergencyProtocol: 'अस्पताल आपातकालीन प्रोटोकॉल का पालन करें',
-    printReceipt: 'थर्मल क्यूआर रसीद प्रिंट करें',
-    qrScanInstruction: 'अपने मोबाइल पर लाइव कतार देखने के लिए इस क्यूआर कोड को स्कैन करें।',
-    kioskTitle: 'अस्पताल सेल्फ-सर्विस कियोस्क',
-    kioskSubtitle: 'अपनी लाइव कतार स्थिति देखने के लिए मरीज आईडी, टोकन या मोबाइल नंबर दर्ज करें।',
-    kioskEnterPlaceholder: 'मरीज आईडी या टोकन दर्ज करें (जैसे QC-2026-9411)',
-    kioskCheckButton: 'लाइव स्थिति देखें',
-    kioskNotFound: 'इस नंबर से कोई सक्रिय जांच नहीं मिली। कृपया स्वागत काउंटर पर संपर्क करें।',
-    completedTestsCount: 'पूर्ण जांचें',
-    remainingTestsCount: 'शेष जांचें',
-    timeSavedMsg: 'स्मार्ट रूटिंग से बचा समय',
-    askQbie: 'क्यू-बी (Q-Bie) से पूछें',
-    qbieOnline: 'ऑनलाइन • लाइव अस्पताल साथी',
+    hospitalName: 'क्लीनिक एवं डायग्नोस्टिक्स',
+    tagline: 'मरीजों की आसान जांच और स्मार्ट पर्ची सेवा',
+    doctorName: 'उपस्थित चिकित्सक',
+    doctorSpecialty: 'परामर्श कक्ष',
+    doctorRoom: 'ओपीडी कक्ष',
+
+    // Navigation / Roles
+    portalDoctor: 'डॉक्टर ओपीडी कंसोल',
+    portalPatient: 'मरीज स्मार्ट पर्ची (बोर्डिंग पास)',
+    portalLab: 'लैब जांच काउंटर',
+    loadDemo: 'डेमो मरीज लोड करें',
+    cleanSlate: 'नया साफ पेज (रीसेट)',
+    demoActive: 'डेमो मरीज सक्रिय (रामेश्वर शर्मा)',
+
+    // Common
+    patient: 'मरीज',
+    age: 'उम्र',
+    gender: 'लिंग',
+    male: 'पुरुष',
+    female: 'महिला',
+    other: 'अन्य',
+    phone: 'मोबाइल',
+    uhid: 'मरीज नंबर (UHID)',
+    token: 'टोकन',
+    status: 'स्थिति',
+    room: 'कमरा',
+    estimatedWait: 'लगभग समय',
+    peopleAhead: 'आपसे आगे',
+    minutes: 'मिनट',
     mins: 'मिनट',
-    wait: 'प्रतीक्षा',
+    upNext: 'अगला कदम',
     nextStep: 'अगला कदम',
+    floor: 'मंजिल',
     completed: 'पूर्ण',
-    upNext: 'अगला',
-    waiting: 'प्रतीक्षारत',
-    token: 'आपका टोकन',
-    estimatedWait: 'अनुमानित प्रतीक्षा'
+    listenAudio: 'आवाज में सुनें',
+    listenAudioTooltip: 'कमरे और कतार की जानकारी हिंदी में सुनें',
+    audioPlaying: 'आवाज चल रही है...',
+    printSlip: 'QR टोकन पर्ची प्रिंट करें',
+    close: 'बंद करें',
+    save: 'सहेजें',
+    submit: 'सबमिट करें',
+    cancel: 'रद्द करें',
+    critical: 'गंभीर',
+    normal: 'सामान्य',
+    high: 'अधिक',
+    low: 'कम',
+
+    // Patient Portal
+    currentDirectiveTitle: '📍 अभी यहाँ जाएं (ABHI YAHAN JAYEIN)',
+    proceedTo: 'यहाँ पहुंचें:',
+    directionsLabel: 'रास्ता / मंजिल',
+    preparationAlert: 'जांच से पहले ध्यान दें',
+    nextInvestigations: 'आगे क्या-क्या जांच होनी है',
+    returnToDoctor: 'वापस डॉक्टर के पास जाएं',
+    returnToDoctorSubtitle: 'कमरा 104 • अंतिम दवा और पर्चा प्राप्त करें',
+    reportsDrawerTitle: 'सत्यापित लैब रिपोर्ट देखें',
+    noReportsYet: 'अभी कोई रिपोर्ट तैयार नहीं है। लैब जांच पूरी होते ही रिपोर्ट यहाँ दिखेगी।',
+    chimeAlertTitle: 'घंटी बजी! आपका नंबर आ गया',
+    chimeAlertSubtitle: 'कृपया तुरंत अंदर कमरा में प्रवेश करें',
+    manualSwitchPrompt: 'क्या पहले कोई दूसरी जांच करानी है? बदलें:',
+    switchButton: 'जांच का क्रम बदलें',
+    markDoneToggle: 'जांच हो चुकी है (मार्क करें)',
+    markAlreadyDone: 'जांच पहले से हो चुकी है',
+    markAlreadyDoneDesc: 'क्या यह जांच पहले हो चुकी है या आपके पास रिपोर्ट उपलब्ध है?',
+    markDoneSuccess: 'जांच को पूर्ण मार्क किया गया। अगला कमरा अपडेट हो गया।',
+    skipNextSuccess: 'टोकन आगे बढ़ाया गया। कतार का अगला टोकन सक्रिय।',
+    upcomingInBay: 'इस काउंटर पर आगे की कतार',
+    callThisToken: 'बुलाएं',
+    printInitialSlip: 'ओपीडी पर्ची प्रिंट करें',
+    registerAndPrint: 'पंजीकरण करें और पर्ची प्रिंट करें',
+
+    // Doctor Portal
+    opdQueueTitle: 'आज के मरीज (OPD कतार)',
+    allWalkins: 'सभी मरीज',
+    waitingOpd: 'कतार में',
+    inDiagnostics: 'जांच जारी',
+    reportsReady: 'रिपोर्ट तैयार',
+    discharged: 'डिस्चार्ज्ड',
+    registerNewWalkin: 'नए मरीज का पंजीकरण करें',
+    fullName: 'मरीज का पूरा नाम',
+    chiefComplaint: 'बीमारी / मुख्य शिकायत',
+    priorityTitle: 'प्राथमिकता स्तर',
+    priorityNormal: 'सामान्य (Normal)',
+    priorityUrgent: 'आपातकालीन (Urgent)',
+    prescribeInvestigations: 'जांच लिखें (1-क्लिक चयन)',
+    selectedTests: 'चुनी गई जांचें',
+    prescribeAndPrint: 'जांच पर्ची व QR कोड प्रिंट करें',
+    doctorConclusion: 'डॉक्टर का निष्कर्ष व दवा',
+    doctorConclusionPlaceholder: 'अंतिम निदान, दवा (जैसे Tab Sorbitrate 5mg SOS) व सलाह लिखें...',
+    verifyAndDischargeBtn: 'जांच सत्यापित करें और पर्चा जारी करें (डिस्चार्ज)',
+    noPatientSelected: 'बाईं ओर दी गई कतार से किसी मरीज को चुनें।',
+
+    // Lab Portal
+    selectDiagnosticBay: 'जांच विभाग / कमरा चुनें',
+    currentServing: 'अभी का टोकन (CURRENT SERVING)',
+    callPatientBtn: 'मरीज को बुलाएं (घंटी + आवाज)',
+    onHoldBtn: 'नहीं आए (ON-HOLD)',
+    recallBtn: 'पुनः बुलाएं',
+    skipNextBtn: 'अगला टोकन',
+    enterTestResults: 'टेस्ट परिणाम दर्ज करें',
+    normalRange: 'सामान्य संदर्भ सीमा',
+    technicianRemarks: 'लैब टिप्पणी / रिमार्क',
+    technicianRemarksPlaceholder: 'जैसे: खाली पेट सैंपल लिया गया, 2 घंटे बाद PPBS की सलाह...',
+    submitTestCompleteBtn: 'परिणाम सबमिट करें और डॉक्टर को भेजें (पूर्ण)',
+    noWaitingTokens: 'इस जांच काउंटर पर अभी कोई मरीज प्रतीक्षारत नहीं है।',
+    onHoldTrayTitle: 'रोके गए मरीज (On-Hold सूची)',
+    emptyOnHold: 'कोई मरीज होल्ड पर नहीं है।'
   }
 };

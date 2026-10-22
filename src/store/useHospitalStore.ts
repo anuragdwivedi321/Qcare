@@ -1,2691 +1,1656 @@
-import { useSyncExternalStore, useCallback, useMemo } from 'react';
-import { 
-  ActiveRole, 
-  Counter, 
-  Department, 
-  DiagnosticTest, 
-  Doctor, 
-  Patient, 
-  QueueToken, 
-  ClinicalReport, 
-  QueueRoutingPlan,
-  PriorityLevel,
-  CurrentUser,
+import { useState, useEffect } from 'react';
+import {
   Hospital,
-  StaffMember,
-  LabMachine,
-  AuditLog,
-  HospitalFloorRoom,
-  DoctorPriority,
-  CounterStatus
+  Department,
+  DiagnosticTest,
+  Counter,
+  Patient,
+  QueueToken,
+  ClinicalReport,
+  CurrentUser,
+  UserRole,
+  Language,
+  ClinicalMetric
 } from '../types';
-import { 
-  INITIAL_DEPARTMENTS, 
-  INITIAL_TESTS, 
-  INITIAL_HOSPITALS,
-  ALL_INITIAL_COUNTERS,
-  ALL_INITIAL_PATIENTS,
-  ALL_INITIAL_QUEUE_TOKENS,
-  ALL_INITIAL_DOCTORS,
-  ALL_INITIAL_CLINICAL_REPORTS,
-  DEMO_STAFF,
-  DEMO_MACHINES,
-  INITIAL_AUDIT_LOGS,
-  DEMO_FLOOR_ROOMS,
-  DEMO_PATIENT_RAHUL,
-  QCARE_DEMO_COUNTERS,
-  QCARE_DEMO_QUEUE_TOKENS
+import {
+  DEFAULT_HOSPITAL,
+  REGISTERED_HOSPITALS,
+  findHospitalByQuery,
+  INITIAL_DEPARTMENTS,
+  INITIAL_TESTS,
+  INITIAL_COUNTERS,
+  INITIAL_PATIENTS,
+  INITIAL_QUEUE_TOKENS,
+  INITIAL_CLINICAL_REPORTS,
+  DEMO_SCENARIO_PATIENTS_LIST,
+  DEMO_SCENARIO_TOKENS,
+  getDepartmentsForHospital,
+  getCountersForHospital
 } from '../data/mockHospitalData';
 import { calculateOptimalQueueRoute } from '../engine/queueRouter';
 import { hospitalAudio } from '../engine/chimeAudio';
-import { realtimeSync } from '../engine/realtimeSync';
-import { 
-  sanitizeString, 
-  validatePatientName, 
-  validatePatientAge, 
-  validatePatientPhone, 
-  validateSymptoms 
-} from '../engine/securitySanitizer';
+import { sanitizeString, validatePatientName, validatePatientAge, validatePatientPhone, evaluateMetricFlag } from '../engine/sanitizer';
 
-// Global singleton state pattern for React 18 application with useSyncExternalStore
-type Listener = () => void;
-
-interface StoreState {
+export interface NavigationHistoryEntry {
+  role: UserRole;
+  selectedPatientId: string | null;
   currentUser: CurrentUser | null;
-  currentHospitalId: string;
-  hospitals: Hospital[];
+  activeBayDepartmentId?: string;
+  viewTitle?: string;
+}
+
+interface HospitalStoreState {
+  currentHospital: Hospital;
   departments: Department[];
   tests: DiagnosticTest[];
   counters: Counter[];
   patients: Patient[];
   queueTokens: QueueToken[];
   clinicalReports: ClinicalReport[];
-  doctors: Doctor[];
-  staffMembers: StaffMember[];
-  labMachines: LabMachine[];
-  auditLogs: AuditLog[];
-  floorRooms: HospitalFloorRoom[];
-  language: 'en' | 'hi';
-  activeRole: ActiveRole;
-  selectedPatientId: string;
-  selectedCounterId: string;
-  selectedDoctorId: string;
-  selectedLabDeptId: string;
-  soundEnabled: boolean;
-  autoSimulateTraffic: boolean;
-  latestAnnouncement: {
+  currentUser: CurrentUser | null;
+  activeRole: UserRole;
+  activeLanguage: Language;
+  selectedPatientId: string | null;
+  activeBayDepartmentId: string;
+  navigationHistory: NavigationHistoryEntry[];
+  callingAlert: {
     tokenNumber: string;
+    patientName: string;
+    roomNo: string;
     counterName: string;
-    room: string;
-    timestamp: string;
   } | null;
-  cumulativeTimeSavedMinutes: number;
   toastNotification: string | null;
+  prefilledWalkinData: {
+    name: string;
+    age: string;
+    gender: 'Male' | 'Female' | 'Other';
+    contact: string;
+    chiefComplaint: string;
+    testIds?: string[];
+  } | null;
+  isSearchModalOpen: boolean;
 }
 
-function getInitialSession(): CurrentUser | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem('qcare_clinical_session');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.id && parsed.role) return parsed;
-    }
-  } catch {
-    // Ignore invalid JSON
-  }
-  return null;
-}
+const STORAGE_KEY = 'qcare_v2_app_store_state';
+const SESSION_KEY = 'qcare_auth_session';
 
-function getInitialDB(): {
-  patients: Patient[];
-  queueTokens: QueueToken[];
-  clinicalReports: ClinicalReport[];
-  counters: Counter[];
-  departments?: Department[];
-  staffMembers?: StaffMember[];
-  labMachines?: LabMachine[];
-  auditLogs?: AuditLog[];
-  hospitals?: Hospital[];
-} | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem('qcare_hospital_db');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.patients)) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore invalid JSON
-  }
-  return null;
-}
-
-const initialSession = getInitialSession();
-const savedDB = getInitialDB();
-
-// 1. Clean out all dummy / fake tokens (qdemo-*) from savedDB so user's old browser cache is purged
-const cleanedSavedTokens = (savedDB?.queueTokens || []).filter(
-  t => !t.id.startsWith('qdemo-') && !t.patientId.startsWith('pat-qdemo-')
-);
-
-// 2. Always guarantee all real patients from ALL_INITIAL_PATIENTS are present
-const patientMap = new Map<string, Patient>();
-ALL_INITIAL_PATIENTS.forEach(p => patientMap.set(p.id, p));
-if (savedDB?.patients) {
-  savedDB.patients.forEach(p => {
-    if (!p.id.startsWith('pat-qdemo-')) {
-      patientMap.set(p.id, { ...p, hospitalId: p.hospitalId || 'qcare-demo' });
-    }
-  });
-}
-const initialPatients = Array.from(patientMap.values());
-
-// 3. Queue tokens: real demo queue tokens + cleaned user registered tokens (purge ghost / orphan tokens)
-const validPatientIds = new Set(patientMap.keys());
-const tokenMap = new Map<string, QueueToken>();
-ALL_INITIAL_QUEUE_TOKENS.forEach(t => {
-  if (validPatientIds.has(t.patientId)) tokenMap.set(t.id, t);
-});
-cleanedSavedTokens.forEach(t => {
-  if (validPatientIds.has(t.patientId)) tokenMap.set(t.id, t);
-});
-const initialQueueTokens = Array.from(tokenMap.values());
-
-// 4. Counters: reset any counter pointing to dead dummy or orphan tokens
-const validTokenIds = new Set(tokenMap.keys());
-const rawCounters = savedDB?.counters
-  ? Array.from(new Map([...ALL_INITIAL_COUNTERS, ...savedDB.counters].map(c => [c.id, c])).values())
-  : ALL_INITIAL_COUNTERS;
-
-const initialCounters = rawCounters.map(c => {
-  if (
-    (c.currentServingTokenId && (c.currentServingTokenId.startsWith('qdemo-') || !validTokenIds.has(c.currentServingTokenId))) ||
-    (c.currentPatientId && !validPatientIds.has(c.currentPatientId))
-  ) {
-    return { ...c, currentServingTokenId: undefined, currentPatientId: undefined };
-  }
-  return c;
-});
-
-const initialMachines = savedDB?.labMachines
-  ? Array.from(new Map([...DEMO_MACHINES, ...savedDB.labMachines].map(m => [m.id, m])).values())
-  : DEMO_MACHINES;
-
-let state: StoreState = {
-  currentUser: initialSession,
-  currentHospitalId: 'qcare-demo', // Default to Flagship QCare Demo Hospital
-  hospitals: savedDB?.hospitals || INITIAL_HOSPITALS,
-  departments: savedDB?.departments || INITIAL_DEPARTMENTS,
+// Initial default state (ZERO FAKE DATA, ZERO PRE-SEEDED DOCTORS/PATIENTS)
+let state: HospitalStoreState = {
+  currentHospital: DEFAULT_HOSPITAL,
+  departments: INITIAL_DEPARTMENTS,
   tests: INITIAL_TESTS,
-  counters: initialCounters,
-  patients: initialPatients,
-  queueTokens: initialQueueTokens,
-  clinicalReports: savedDB?.clinicalReports || ALL_INITIAL_CLINICAL_REPORTS,
-  doctors: ALL_INITIAL_DOCTORS,
-  staffMembers: savedDB?.staffMembers || DEMO_STAFF,
-  labMachines: initialMachines,
-  auditLogs: savedDB?.auditLogs || INITIAL_AUDIT_LOGS,
-  floorRooms: DEMO_FLOOR_ROOMS,
-  language: 'en',
-  activeRole: initialSession ? (initialSession.role as ActiveRole) : 'patient',
-  selectedPatientId: initialSession?.role === 'patient' ? initialSession.id : 'pat-rahul-sharma',
-  selectedCounterId: initialSession?.role === 'lab_tech' && initialSession.counterId ? initialSession.counterId : 'counter-qdemo-usg-1',
-  selectedDoctorId: 'doc-01',
-  selectedLabDeptId: 'dept-ultrasound',
-  soundEnabled: true,
-  autoSimulateTraffic: false,
-  latestAnnouncement: null,
-  cumulativeTimeSavedMinutes: 142,
-  toastNotification: null
+  counters: INITIAL_COUNTERS,
+  patients: [],
+  queueTokens: [],
+  clinicalReports: [],
+  currentUser: null,
+  activeRole: 'doctor',
+  activeLanguage: 'en',
+  selectedPatientId: null,
+  activeBayDepartmentId: 'dept-pathology',
+  navigationHistory: [],
+  callingAlert: null,
+  toastNotification: null,
+  prefilledWalkinData: null,
+  isSearchModalOpen: false
 };
 
-// Immediate sync to localStorage so user's browser storage is cleaned
+// Hydrate auth session & persistent store from localStorage on startup / refresh
 if (typeof window !== 'undefined') {
   try {
-    saveDB(state);
-  } catch {}
-}
+    const savedSessionStr = localStorage.getItem(SESSION_KEY);
+    const savedStateStr = localStorage.getItem(STORAGE_KEY);
 
-const listeners = new Set<Listener>();
+    let hydratedUser: CurrentUser | null = null;
+    let hydratedHosp = DEFAULT_HOSPITAL;
+    let hydratedRole: UserRole = 'doctor';
+    let hydratedPatientId: string | null = null;
 
-function notify() {
-  listeners.forEach(listener => listener());
-}
-
-function saveDB(s: StoreState) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('qcare_hospital_db', JSON.stringify({
-      patients: s.patients,
-      queueTokens: s.queueTokens,
-      clinicalReports: s.clinicalReports,
-      counters: s.counters,
-      departments: s.departments,
-      staffMembers: s.staffMembers,
-      labMachines: s.labMachines,
-      auditLogs: s.auditLogs,
-      hospitals: s.hospitals
-    }));
-  } catch {}
-}
-
-function updateState(updater: (prev: StoreState) => StoreState) {
-  state = updater(state);
-  saveDB(state);
-  notify();
-  // Multi-window / multi-tab live sync via BroadcastChannel
-  realtimeSync.broadcast('STORE_SYNC', {
-    hospitalId: state.currentHospitalId,
-    patientId: state.selectedPatientId
-  });
-}
-
-// Reactive cross-tab sync listener
-if (typeof window !== 'undefined') {
-  realtimeSync.subscribe((_msg) => {
-    try {
-      const db = getInitialDB();
-      if (db) {
-        state = {
-          ...state,
-          patients: db.patients || state.patients,
-          queueTokens: db.queueTokens || state.queueTokens,
-          clinicalReports: db.clinicalReports || state.clinicalReports,
-          counters: db.counters || state.counters,
-          departments: db.departments || state.departments,
-          staffMembers: db.staffMembers || state.staffMembers,
-          labMachines: db.labMachines || state.labMachines,
-          auditLogs: db.auditLogs || state.auditLogs,
-          hospitals: db.hospitals || state.hospitals
-        };
-        notify();
-      }
-    } catch {}
-  });
-}
-
-function subscribe(callback: () => void) {
-  listeners.add(callback);
-  return () => {
-    listeners.delete(callback);
-  };
-}
-
-export function getHospitalStoreSnapshot(): StoreState {
-  return state;
-}
-
-export function resetHospitalStoreForTesting() {
-  updateState(s => ({
-    ...s,
-    currentHospitalId: 'hosp-metro',
-    patients: JSON.parse(JSON.stringify(ALL_INITIAL_PATIENTS)),
-    queueTokens: JSON.parse(JSON.stringify(ALL_INITIAL_QUEUE_TOKENS)),
-    clinicalReports: JSON.parse(JSON.stringify(ALL_INITIAL_CLINICAL_REPORTS)),
-    counters: JSON.parse(JSON.stringify(ALL_INITIAL_COUNTERS)),
-    doctors: JSON.parse(JSON.stringify(ALL_INITIAL_DOCTORS))
-  }));
-}
-
-export function setHospitalAction(hospitalId: string) {
-  setHospitalInternal(hospitalId);
-}
-
-function setHospitalInternal(hospitalId: string) {
-  updateState(s => {
-    const targetHosp = s.hospitals.find(h => h.id === hospitalId);
-    if (!targetHosp) return s;
-
-    const hospDocs = s.doctors.filter(d => (d.hospitalId || 'hosp-metro') === hospitalId);
-    const hospCounters = s.counters.filter(c => (c.hospitalId || 'hosp-metro') === hospitalId);
-    const hospPatients = s.patients.filter(p => (p.hospitalId || 'hosp-metro') === hospitalId);
-
-    const nextDocId = hospDocs[0]?.id || s.selectedDoctorId;
-    const nextCounterId = hospCounters[0]?.id || s.selectedCounterId;
-    const nextPatientId = hospPatients[0]?.id || s.selectedPatientId;
-
-    let updatedUser = s.currentUser;
-    if (updatedUser) {
-      if (updatedUser.role === 'doctor') {
-        const doc = hospDocs.find(d => d.id === updatedUser!.id) || hospDocs[0];
-        if (doc) {
-          updatedUser = {
-            id: doc.id,
-            role: 'doctor',
-            name: doc.name,
-            identifier: doc.roomNo,
-            subtitle: doc.specialization,
-            hospitalId: targetHosp.id,
-            hospitalName: targetHosp.name
-          };
-        }
-      } else if (updatedUser.role === 'lab_tech') {
-        const counter = hospCounters.find(c => c.id === updatedUser!.counterId) || hospCounters[0];
-        if (counter) {
-          updatedUser = {
-            id: counter.id,
-            role: 'lab_tech',
-            name: counter.technicianName,
-            identifier: counter.code,
-            counterId: counter.id,
-            hospitalId: targetHosp.id,
-            hospitalName: targetHosp.name
-          };
-        }
-      } else if (updatedUser.role === 'patient') {
-        const pat = hospPatients.find(p => p.id === updatedUser!.id) || hospPatients[0];
-        if (pat) {
-          updatedUser = {
-            id: pat.id,
-            role: 'patient',
-            name: pat.name,
-            identifier: pat.uhid,
-            subtitle: `${pat.age} Yrs / ${pat.gender}`,
-            hospitalId: targetHosp.id,
-            hospitalName: targetHosp.name
-          };
-        }
-      }
-      if (typeof window !== 'undefined' && updatedUser) {
-        try {
-          localStorage.setItem('qcare_clinical_session', JSON.stringify(updatedUser));
-        } catch {}
+    if (savedSessionStr) {
+      const sess = JSON.parse(savedSessionStr);
+      if (sess && sess.currentUser) {
+        hydratedUser = sess.currentUser;
+        hydratedHosp = sess.currentHospital || DEFAULT_HOSPITAL;
+        hydratedRole = sess.activeRole || 'doctor';
+        hydratedPatientId = sess.selectedPatientId || null;
       }
     }
 
-    return {
-      ...s,
-      currentHospitalId: hospitalId,
-      selectedDoctorId: nextDocId,
-      selectedCounterId: nextCounterId,
-      selectedPatientId: nextPatientId,
-      currentUser: updatedUser
-    };
-  });
-}
-
-function getSnapshot(): StoreState {
-  return state;
-}
-
-// Background simulation ticker for autoSimulateTraffic
-let autoTrafficInterval: ReturnType<typeof setInterval> | null = null;
-
-function setAutoTrafficTimer(enabled: boolean) {
-  if (autoTrafficInterval) {
-    clearInterval(autoTrafficInterval);
-    autoTrafficInterval = null;
-  }
-  if (!enabled) return;
-
-  autoTrafficInterval = setInterval(() => {
-    // 60% chance advance an active counter, 40% chance add a walk-in token
-    if (Math.random() > 0.4) {
-      const activeCounters = state.counters.filter(
-        c => c.status === 'active' && (c.hospitalId || 'hosp-metro') === state.currentHospitalId
-      );
-      if (activeCounters.length > 0) {
-        // Pick random counter with waiting tokens or currently serving
-        const candidate = activeCounters[Math.floor(Math.random() * activeCounters.length)];
-        callOrAdvanceCounter(candidate.id, true);
-      }
-    } else {
-      // Simulate random walk-in surge for active hospital
-      const depts = state.departments;
-      const targetDept = depts[Math.floor(Math.random() * depts.length)];
-      if (targetDept) {
-        simulateRushTraffic(targetDept.id, 2, state.currentHospitalId);
-      }
-    }
-  }, 8000);
-}
-
-function simulateRushTraffic(deptId: string, count: number, hospitalId?: string) {
-  updateState(s => {
-    const targetHospId = hospitalId || s.currentHospitalId;
-    const dept = s.departments.find(d => d.id === deptId);
-    if (!dept) return s;
-
-    const test = s.tests.find(t => t.departmentId === deptId);
-    const testId = test?.id || 'test-cbc';
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newRushTokens: QueueToken[] = [];
-    const currentDeptTokens = s.queueTokens.filter(
-      t => t.departmentId === deptId && (t.hospitalId || 'hosp-metro') === targetHospId
-    );
-
-    for (let i = 1; i <= count; i++) {
-      const tokenNum = `${dept.code}-${200 + currentDeptTokens.length + i}`;
-      newRushTokens.push({
-        id: `rush-tok-${Date.now()}-${i}`,
-        hospitalId: targetHospId,
-        tokenNumber: tokenNum,
-        patientId: `rush-pat-${Date.now()}-${i}`,
-        testId,
-        departmentId: deptId,
-        priority: 'standard',
-        status: 'waiting',
-        issuedAt: nowStr,
-        queuePosition: currentDeptTokens.length + i,
-        estimatedWaitMinutes: (currentDeptTokens.length + i) * 6
-      });
-    }
-
-    return {
-      ...s,
-      queueTokens: [...s.queueTokens, ...newRushTokens]
-    };
-  });
-}
-
-export function callOrAdvanceCounterAction(counterId: string, silent: boolean = false) {
-  callOrAdvanceCounter(counterId, silent);
-}
-
-function callOrAdvanceCounter(counterId: string, silent: boolean = false) {
-  updateState(s => {
-    const counter = s.counters.find(c => c.id === counterId);
-    if (!counter || counter.status !== 'active') return s;
-
-    const counterHospId = counter.hospitalId || s.currentHospitalId || 'qcare-demo';
-    const dept = s.departments.find(d => d.id === counter.departmentId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    let updatedTokens = [...s.queueTokens];
-    let updatedPatients = [...s.patients];
-    let updatedReports = [...s.clinicalReports];
-    let timeSavedInc = 0;
-
-    // 1. If counter is already serving a token, complete that token first!
-    if (counter.currentServingTokenId) {
-      const prevToken = updatedTokens.find(t => t.id === counter.currentServingTokenId);
-      if (prevToken && (prevToken.status === 'called' || prevToken.status === 'in_progress')) {
-        updatedTokens = updatedTokens.map(t =>
-          t.id === prevToken.id ? { ...t, status: 'completed' as const, completedAt: nowStr } : t
-        );
-
-        const prevPatient = updatedPatients.find(p => p.id === prevToken.patientId);
-        const prevTest = s.tests.find(t => t.id === prevToken.testId);
-
-        // Generate completion report
-        const newReport: ClinicalReport = {
-          id: `rep-${Date.now()}-${prevToken.id}`,
-          hospitalId: prevToken.hospitalId || prevPatient?.hospitalId || counterHospId,
-          testId: prevToken.testId,
-          testName: prevTest?.name || 'Diagnostic Test',
-          patientId: prevToken.patientId,
-          patientUhid: prevPatient?.uhid || 'QC-WALKIN',
-          patientName: prevPatient?.name || 'Hospital Patient',
-          technicianName: counter.technicianName,
-          counterId: counter.id,
-          timestamp: `${nowStr} Today`,
-          status: 'uploaded',
-          summary: 'Investigation executed adhering to standard clinical guidelines. Metrics recorded in reference range.',
-          metrics: [
-            { label: 'Clinical Result Marker', value: 'Normal', unit: 'Index', normalRange: 'Normal', flag: 'normal' }
-          ]
-        };
-        updatedReports = [newReport, ...updatedReports];
-        timeSavedInc = 15;
-
-          // Update patient and OPD consultation token
-          if (prevPatient) {
-            const newCompleted = Array.from(new Set([...prevPatient.completedTests, prevToken.testId]));
-            const allDone = prevPatient.prescribedTests.length > 0 && prevPatient.prescribedTests.every(tid => newCompleted.includes(tid));
-
-            let nextSmartRoute = prevPatient.assignedSmartRoute;
-            if (!allDone) {
-              const tempPatient: Patient = {
-                ...prevPatient,
-                completedTests: newCompleted
-              };
-              const nextPlan = calculateOptimalQueueRoute(
-                tempPatient,
-                s.tests,
-                s.departments,
-                updatedTokens.filter(t => (t.hospitalId || 'hosp-metro') === counterHospId),
-                s.counters.filter(c => (c.hospitalId || 'hosp-metro') === counterHospId)
-              );
-              nextSmartRoute = nextPlan.smartRouteSteps.map(step => step.testId);
-            }
-
-            // Update OPD token status if all tests done
-            if (allDone) {
-              updatedTokens = updatedTokens.map(t =>
-                t.patientId === prevPatient.id && t.testId === 'opd-consultation'
-                  ? { ...t, status: 'reports_ready' as const }
-                  : t
-              );
-            }
-
-            updatedPatients = updatedPatients.map(p =>
-              p.id === prevPatient.id
-                ? {
-                    ...p,
-                    completedTests: newCompleted,
-                    assignedSmartRoute: nextSmartRoute,
-                    currentTestId: undefined,
-                    status: allDone ? ('all_completed' as const) : ('in_transit' as const),
-                    doctorReviewStatus: allDone ? ('reports_ready' as const) : ('awaiting_lab_reports' as const)
-                  }
-                : p
-            );
-          }
-      }
-    }
-
-    // 2. Find waiting tokens for this department and this hospital
-    const waiting = updatedTokens.filter(t => {
-      if (t.departmentId !== counter.departmentId) return false;
-      if (t.status !== 'waiting') return false;
-      const tokHosp = t.hospitalId || 'qcare-demo';
-      return tokHosp === counterHospId || counterHospId === 'qcare-demo';
-    });
-
-    if (waiting.length === 0) {
-      // Counter is now idle
-      const updatedCounters = s.counters.map(c =>
-        c.id === counterId
-          ? { ...c, currentServingTokenId: undefined, currentPatientId: undefined }
-          : c
-      );
-      return {
-        ...s,
-        counters: updatedCounters,
-        queueTokens: updatedTokens,
-        patients: updatedPatients,
-        clinicalReports: updatedReports,
-        cumulativeTimeSavedMinutes: s.cumulativeTimeSavedMinutes + timeSavedInc
+    if (savedStateStr) {
+      const parsed = JSON.parse(savedStateStr);
+      const effectiveHosp = hydratedHosp || parsed.currentHospital || DEFAULT_HOSPITAL;
+      state = {
+        ...state,
+        ...parsed,
+        currentUser: hydratedUser || parsed.currentUser || null,
+        currentHospital: effectiveHosp,
+        activeRole: hydratedRole || parsed.activeRole || 'doctor',
+        selectedPatientId: hydratedPatientId || parsed.selectedPatientId || null,
+        departments: getDepartmentsForHospital(effectiveHosp.code || effectiveHosp.id),
+        tests: INITIAL_TESTS,
+        counters: getCountersForHospital(effectiveHosp.code || effectiveHosp.id),
+        callingAlert: null,
+        toastNotification: null
+      };
+    } else if (hydratedUser) {
+      const effectiveHosp = hydratedHosp || DEFAULT_HOSPITAL;
+      state = {
+        ...state,
+        currentUser: hydratedUser,
+        currentHospital: effectiveHosp,
+        activeRole: hydratedRole,
+        selectedPatientId: hydratedPatientId,
+        departments: getDepartmentsForHospital(effectiveHosp.code || effectiveHosp.id),
+        counters: getCountersForHospital(effectiveHosp.code || effectiveHosp.id)
       };
     }
-
-    // Sort by priority then issue order
-    const priorityWeights: Record<string, number> = { emergency: 3, senior: 2, standard: 1 };
-    const sorted = [...waiting].sort((a, b) => {
-      const weightDiff = (priorityWeights[b.priority] || 1) - (priorityWeights[a.priority] || 1);
-      if (weightDiff !== 0) return weightDiff;
-      return a.queuePosition - b.queuePosition;
-    });
-
-    const nextToken = sorted[0];
-
-    // Play audio announcement only if not silenced
-    if (s.soundEnabled && dept && !silent) {
-      const pat = s.patients.find(p => p.id === nextToken.patientId);
-      const patName = pat?.name || nextToken.patientName || 'Patient';
-      hospitalAudio.announceToken(nextToken.tokenNumber, counter.name, dept.location.room, patName);
-    }
-
-    updatedTokens = updatedTokens.map(t => {
-      if (t.id === nextToken.id) {
-        return {
-          ...t,
-          counterId,
-          status: 'called' as const,
-          calledAt: nowStr,
-          queuePosition: 0
-        };
-      }
-      return t;
-    });
-
-    const updatedCounters = s.counters.map(c => {
-      if (c.id === counterId) {
-        return {
-          ...c,
-          currentServingTokenId: nextToken.id,
-          currentPatientId: nextToken.patientId,
-          servedCountToday: c.servedCountToday + 1
-        };
-      }
-      return c;
-    });
-
-    updatedPatients = updatedPatients.map(p => {
-      if (p.id === nextToken.patientId) {
-        return {
-          ...p,
-          status: 'in_test' as const,
-          currentTestId: nextToken.testId
-        };
-      }
-      return p;
-    });
-
-    return {
-      ...s,
-      queueTokens: updatedTokens,
-      counters: updatedCounters,
-      patients: updatedPatients,
-      clinicalReports: updatedReports,
-      selectedPatientId: nextToken.patientId,
-      cumulativeTimeSavedMinutes: s.cumulativeTimeSavedMinutes + timeSavedInc,
-      latestAnnouncement: {
-        tokenNumber: nextToken.tokenNumber,
-        counterName: counter.name,
-        room: dept?.location.room || 'Room',
-        timestamp: nowStr
-      }
-    };
-  });
-}
-
-function callSpecificTokenInternal(paramA: string, paramB: string) {
-  updateState(s => {
-    let counter = s.counters.find(c => c.id === paramA);
-    let targetToken = s.queueTokens.find(t => t.id === paramB);
-
-    if (!counter || !targetToken) {
-      const counterAlt = s.counters.find(c => c.id === paramB);
-      const tokenAlt = s.queueTokens.find(t => t.id === paramA);
-      if (counterAlt && tokenAlt) {
-        counter = counterAlt;
-        targetToken = tokenAlt;
-      }
-    }
-
-    if (!counter || counter.status !== 'active' || !targetToken) return s;
-    const counterId = counter.id;
-
-    const counterHospId = counter.hospitalId || s.currentHospitalId || 'qcare-demo';
-    const dept = s.departments.find(d => d.id === counter.departmentId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    let updatedTokens = [...s.queueTokens];
-    let updatedPatients = [...s.patients];
-    let updatedReports = [...s.clinicalReports];
-    let timeSavedInc = 0;
-
-    // 1. If counter is already serving a token, complete that token first
-    if (counter.currentServingTokenId) {
-      const prevToken = updatedTokens.find(t => t.id === counter.currentServingTokenId);
-      if (prevToken && (prevToken.status === 'called' || prevToken.status === 'in_progress')) {
-        updatedTokens = updatedTokens.map(t =>
-          t.id === prevToken.id ? { ...t, status: 'completed' as const, completedAt: nowStr } : t
-        );
-
-        const prevPatient = updatedPatients.find(p => p.id === prevToken.patientId);
-        const prevTest = s.tests.find(t => t.id === prevToken.testId);
-
-        const newReport: ClinicalReport = {
-          id: `rep-${Date.now()}-${prevToken.id}`,
-          hospitalId: prevToken.hospitalId || prevPatient?.hospitalId || counterHospId,
-          testId: prevToken.testId,
-          testName: prevTest?.name || 'Diagnostic Test',
-          patientId: prevToken.patientId,
-          patientUhid: prevPatient?.uhid || 'QC-WALKIN',
-          patientName: prevPatient?.name || 'Hospital Patient',
-          technicianName: counter.technicianName,
-          counterId: counter.id,
-          timestamp: `${nowStr} Today`,
-          status: 'uploaded',
-          summary: 'Investigation executed adhering to standard clinical guidelines. Metrics recorded in reference range.',
-          metrics: [
-            { label: 'Clinical Result Marker', value: 'Normal', unit: 'Index', normalRange: 'Normal', flag: 'normal' }
-          ]
-        };
-        updatedReports = [newReport, ...updatedReports];
-        timeSavedInc = 15;
-
-        if (prevPatient) {
-          const newCompleted = Array.from(new Set([...prevPatient.completedTests, prevToken.testId]));
-          const allDone = prevPatient.prescribedTests.length > 0 && prevPatient.prescribedTests.every(tid => newCompleted.includes(tid));
-
-          if (allDone) {
-            updatedTokens = updatedTokens.map(t =>
-              t.patientId === prevPatient.id && t.testId === 'opd-consultation'
-                ? { ...t, status: 'reports_ready' as const }
-                : t
-            );
-          }
-
-          updatedPatients = updatedPatients.map(p =>
-            p.id === prevPatient.id
-              ? {
-                  ...p,
-                  completedTests: newCompleted,
-                  currentTestId: undefined,
-                  status: allDone ? ('all_completed' as const) : ('in_transit' as const),
-                  doctorReviewStatus: allDone ? ('reports_ready' as const) : ('awaiting_lab_reports' as const)
-                }
-              : p
-          );
-        }
-      }
-    }
-
-    // 2. Play audio announcement if sound enabled
-    if (s.soundEnabled && dept) {
-      const pat = s.patients.find(p => p.id === targetToken.patientId);
-      const patName = pat?.name || targetToken.patientName || 'Patient';
-      hospitalAudio.announceToken(targetToken.tokenNumber, counter.name, dept.location.room, patName);
-    }
-
-    // 3. Mark targetToken as called
-    updatedTokens = updatedTokens.map(t => {
-      if (t.id === targetToken.id) {
-        return {
-          ...t,
-          counterId,
-          status: 'called' as const,
-          calledAt: nowStr,
-          queuePosition: 0
-        };
-      }
-      return t;
-    });
-
-    // 4. Update counter
-    const updatedCounters = s.counters.map(c => {
-      if (c.id === counterId) {
-        return {
-          ...c,
-          currentServingTokenId: targetToken.id,
-          currentPatientId: targetToken.patientId,
-          servedCountToday: c.servedCountToday + 1
-        };
-      }
-      return c;
-    });
-
-    // 5. Update patient
-    updatedPatients = updatedPatients.map(p => {
-      if (p.id === targetToken.patientId) {
-        return {
-          ...p,
-          status: 'in_test' as const,
-          currentTestId: targetToken.testId
-        };
-      }
-      return p;
-    });
-
-    return {
-      ...s,
-      queueTokens: updatedTokens,
-      counters: updatedCounters,
-      patients: updatedPatients,
-      clinicalReports: updatedReports,
-      selectedPatientId: targetToken.patientId,
-      cumulativeTimeSavedMinutes: s.cumulativeTimeSavedMinutes + timeSavedInc,
-      latestAnnouncement: {
-        tokenNumber: targetToken.tokenNumber,
-        counterName: counter.name,
-        room: dept?.location.room || 'Room',
-        timestamp: nowStr
-      }
-    };
-  });
-}
-
-export function registerPatientAction(data: {
-  name: string;
-  age: number;
-  gender: 'Male' | 'Female' | 'Other';
-  contact: string;
-  currentIllness: string;
-  doctorId: string;
-  priority?: PriorityLevel;
-  autoLogin?: boolean;
-  prescribedTests?: string[];
-}): Patient & { opdTokenNumber: string; queuePosition: number; estimatedWaitMinutes: number } {
-  // Input Sanitization & Security Boundary Validation (XSS protection, age 0-130, 10-digit phone)
-  const nameVal = validatePatientName(data.name);
-  const cleanName = nameVal.isValid ? nameVal.value : sanitizeString(data.name) || 'Registered Patient';
-  const ageVal = validatePatientAge(data.age);
-  const cleanAge = ageVal.isValid ? ageVal.value : Math.min(130, Math.max(0, Number(data.age) || 30));
-  const phoneVal = validatePatientPhone(data.contact);
-  const cleanContact = phoneVal.isValid ? phoneVal.value : (data.contact ? sanitizeString(data.contact) : '+91 98000 00000');
-  const illnessVal = validateSymptoms(data.currentIllness || 'Routine Consultation');
-  const cleanIllness = illnessVal.isValid ? illnessVal.value : sanitizeString(data.currentIllness) || 'Routine Consultation';
-
-  const hospDocs = state.doctors.filter(d => (d.hospitalId || 'hosp-metro') === state.currentHospitalId);
-  const doctor = (data.doctorId ? state.doctors.find(d => d.id === data.doctorId) : null) || hospDocs[0] || state.doctors[0];
-  const hospId = (doctor && doctor.id === data.doctorId && doctor.hospitalId) ? doctor.hospitalId : (hospDocs[0]?.hospitalId || state.currentHospitalId);
-  const hosp = state.hospitals.find(h => h.id === hospId) || state.hospitals[0];
-
-  const generatedUhid = `QC-${2026}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const newId = `pat-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const calculatedPriority: PriorityLevel = data.priority || (cleanAge >= 60 ? 'senior' : 'standard');
-  const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  // Generate unique sequential OPD token scoped to hospital
-  const prefix = hosp.tier === 'single_doctor_clinic' ? 'CLN' : (hosp.tier === 'diagnostic_center' ? 'DIA' : 'OPD');
-  const existingOpdNums = state.queueTokens
-    .filter(t => (t.hospitalId || 'hosp-metro') === hosp.id)
-    .map(t => {
-      const regex = new RegExp(`^${prefix}-(\\d+)$`);
-      const m = t.tokenNumber.match(regex);
-      return m ? parseInt(m[1], 10) : 0;
-    });
-  const maxOpd = Math.max(100, ...existingOpdNums);
-  const generatedOpdToken = `${prefix}-${maxOpd + 1}`;
-  const opdTokenId = `tok-opd-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  // Smart triage & queue placement in doctor's OPD queue
-  const priorityWeights: Record<PriorityLevel, number> = { emergency: 3, senior: 2, standard: 1 };
-  const myWeight = priorityWeights[calculatedPriority];
-  const docActiveOpdTokens = state.queueTokens.filter(
-    t => t.doctorId === doctor.id && (t.hospitalId || 'hosp-metro') === hosp.id && t.testId === 'opd-consultation' && t.status !== 'completed'
-  );
-  const higherOrEqualCount = docActiveOpdTokens.filter(
-    t => (priorityWeights[t.priority] || 1) >= myWeight
-  ).length;
-
-  // Emergency jumps to immediate triage (position 1); Seniors prioritized; Standard FIFO
-  const queuePosition = calculatedPriority === 'emergency' ? 1 : higherOrEqualCount + 1;
-  const estimatedWaitMinutes = calculatedPriority === 'emergency' ? 2 : queuePosition * 8;
-
-  // Re-index other active OPD tokens for this doctor that are displaced so queue positions remain sequential without collisions:
-  const updatedExistingTokens = state.queueTokens.map(t => {
-    if (t.doctorId === doctor.id && (t.hospitalId || 'hosp-metro') === hosp.id && t.testId === 'opd-consultation' && t.status !== 'completed') {
-      if (t.queuePosition >= queuePosition) {
-        const nextPos = t.queuePosition + 1;
-        return {
-          ...t,
-          queuePosition: nextPos,
-          estimatedWaitMinutes: t.priority === 'emergency' ? 2 : nextPos * 8
-        };
-      }
-    }
-    return t;
-  });
-
-  const opdToken: QueueToken = {
-    id: opdTokenId,
-    hospitalId: hosp.id,
-    tokenNumber: generatedOpdToken,
-    patientId: newId,
-    patientName: cleanName,
-    patientUhid: generatedUhid,
-    patientAge: cleanAge,
-    patientGender: data.gender,
-    testId: 'opd-consultation',
-    testName: 'OPD Doctor Consultation',
-    departmentId: 'dept-opd',
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    priority: calculatedPriority,
-    status: 'waiting',
-    issuedAt: nowStr,
-    queuePosition,
-    estimatedWaitMinutes
-  };
-
-  const labTokens: QueueToken[] = [];
-  const testIds = data.prescribedTests || [];
-  const activeTokenIds: Record<string, string> = {
-    'opd-consultation': opdTokenId
-  };
-
-  testIds.forEach(testId => {
-    const test = state.tests.find(t => t.id === testId);
-    if (test) {
-      const tokenId = `tok-${Date.now()}-${testId}`;
-      activeTokenIds[testId] = tokenId;
-      const deptWaiting = state.queueTokens.filter(t => t.departmentId === test.departmentId && t.status === 'waiting');
-      labTokens.push({
-        id: tokenId,
-        hospitalId: hosp.id,
-        tokenNumber: `${test.code.split('-')[0] || 'TST'}-${Math.floor(100 + Math.random() * 899)}`,
-        patientId: newId,
-        patientName: cleanName,
-        patientUhid: generatedUhid,
-        patientAge: cleanAge,
-        patientGender: data.gender,
-        testId: test.id,
-        testName: test.name,
-        departmentId: test.departmentId,
-        priority: calculatedPriority,
-        status: 'waiting',
-        issuedAt: nowStr,
-        queuePosition: deptWaiting.length + 1,
-        estimatedWaitMinutes: (deptWaiting.length + 1) * (test.averageDurationMinutes || 8)
-      });
-    }
-  });
-
-  const newPatient: Patient = {
-    id: newId,
-    hospitalId: hosp.id,
-    hospitalName: hosp.name,
-    uhid: generatedUhid,
-    name: cleanName,
-    age: cleanAge,
-    gender: data.gender,
-    contact: cleanContact,
-    priority: calculatedPriority,
-    prescribedDoctorId: doctor.id,
-    prescribedDoctorName: doctor.name,
-    prescribedDoctorRoom: doctor.roomNo,
-    currentIllness: cleanIllness,
-    symptoms: cleanIllness,
-    prescribedTests: testIds,
-    completedTests: [],
-    currentTestId: undefined,
-    activeTokenIds,
-    status: 'checked_in',
-    assignedSmartRoute: testIds,
-    assignedNaiveRoute: testIds,
-    registrationTime: nowStr,
-    opdTokenNumber: generatedOpdToken,
-    doctorReviewStatus: testIds.length > 0 ? 'awaiting_lab_reports' : 'awaiting_prescription'
-  };
-
-  const user: CurrentUser = {
-    id: newPatient.id,
-    role: 'patient',
-    name: newPatient.name,
-    identifier: newPatient.uhid,
-    subtitle: `${newPatient.age} Yrs / ${newPatient.gender} • Consulting: ${doctor.name}`,
-    hospitalId: hosp.id,
-    hospitalName: hosp.name
-  };
-
-  // If caller is already clinical staff, or autoLogin is false, do not override current session
-  const isClinicalStaff = state.currentUser?.role === 'doctor' || state.currentUser?.role === 'lab_tech';
-  const shouldSetSession = data.autoLogin !== false && !isClinicalStaff;
-
-  if (typeof window !== 'undefined' && shouldSetSession) {
-    try {
-      localStorage.setItem('qcare_clinical_session', JSON.stringify(user));
-    } catch {}
+  } catch {
+    // Ignore hydration failure
   }
-
-  updateState(s => ({
-    ...s,
-    patients: [newPatient, ...s.patients],
-    queueTokens: [...updatedExistingTokens, opdToken, ...labTokens],
-    currentUser: shouldSetSession ? user : s.currentUser,
-    activeRole: shouldSetSession ? 'patient' : s.activeRole,
-    selectedPatientId: newPatient.id
-  }));
-
-  return Object.assign(newPatient, {
-    patientId: newId,
-    opdTokenNumber: generatedOpdToken,
-    queuePosition,
-    estimatedWaitMinutes
-  });
 }
 
-export function completeTestAndUploadReportAction(
-  tokenId: string,
-  reportData: {
-    summary: string;
-    metrics: { label: string; value: string; unit: string; normalRange: string; flag: 'normal' | 'high' | 'low' | 'critical' }[];
-  }
-) {
-  updateState(s => {
-    const token = s.queueTokens.find(t => t.id === tokenId);
-    if (!token) return s;
+const listeners = new Set<() => void>();
 
-    const patient = s.patients.find(p => p.id === token.patientId);
-    const test = s.tests.find(t => t.id === token.testId);
-    const counter = s.counters.find(c => c.id === token.counterId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // 1. Update token to completed
-    const updatedTokens = s.queueTokens.map(t =>
-      t.id === tokenId ? { ...t, status: 'completed' as const, completedAt: nowStr } : t
-    );
-
-    // 2. Clear counter
-    const updatedCounters = s.counters.map(c =>
-      (c.id === token.counterId || c.currentServingTokenId === token.id)
-        ? { ...c, currentServingTokenId: undefined, currentPatientId: undefined }
-        : c
-    );
-
-    // 3. Create new clinical report
-    const newReport: ClinicalReport = {
-      id: `rep-${Date.now()}`,
-      hospitalId: token.hospitalId || patient?.hospitalId || s.currentHospitalId,
-      testId: token.testId,
-      testName: test?.name || 'Diagnostic Test',
-      patientId: token.patientId,
-      patientUhid: patient?.uhid || 'QC-UNKNOWN',
-      patientName: patient?.name || 'Patient',
-      technicianName: counter?.technicianName || 'Staff Technician',
-      counterId: token.counterId || 'Counter',
-      timestamp: `${nowStr} Today`,
-      status: 'uploaded',
-      summary: reportData.summary,
-      metrics: reportData.metrics
+// Real-time Cross-Tab Synchronization Channel
+let broadcastChannel: BroadcastChannel | null = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    broadcastChannel = new BroadcastChannel('qcare_v2_sync_channel');
+    broadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'SYNC_STATE' && event.data?.payload) {
+        state = {
+          ...state,
+          ...event.data.payload,
+          callingAlert: event.data.payload.callingAlert !== undefined ? event.data.payload.callingAlert : state.callingAlert
+        };
+        listeners.forEach(listener => listener());
+      }
     };
+  } catch {
+    // Fallback if BroadcastChannel blocked by browser security
+  }
+}
 
-    // 4. Update patient & OPD consultation token
-    let finalTokens = updatedTokens;
-    if (patient) {
-      const newCompleted = Array.from(new Set([...patient.completedTests, token.testId]));
-      const allDone = patient.prescribedTests.length > 0 && patient.prescribedTests.every(tid => newCompleted.includes(tid));
-
-      if (allDone) {
-        finalTokens = finalTokens.map(t =>
-          t.patientId === patient.id && t.testId === 'opd-consultation'
-            ? { ...t, status: 'reports_ready' as const }
-            : t
-        );
-        if (s.soundEnabled) {
-          hospitalAudio.playChime();
-        }
+// Storage event listener fallback for cross-tab sync
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === STORAGE_KEY && event.newValue) {
+      try {
+        const parsed = JSON.parse(event.newValue);
+        state = {
+          ...state,
+          ...parsed
+        };
+        listeners.forEach(listener => listener());
+      } catch {
+        // Safe catch
       }
     }
-
-    const updatedPatients = s.patients.map(p => {
-      if (p.id === token.patientId) {
-        const newCompleted = Array.from(new Set([...p.completedTests, token.testId]));
-        const allDone = p.prescribedTests.length > 0 && p.prescribedTests.every(tid => newCompleted.includes(tid));
-
-        let nextSmartRoute = p.assignedSmartRoute;
-        if (!allDone) {
-          const tempPatient: Patient = {
-            ...p,
-            completedTests: newCompleted
-          };
-          const nextPlan = calculateOptimalQueueRoute(
-            tempPatient,
-            s.tests,
-            s.departments,
-            finalTokens,
-            updatedCounters
-          );
-          nextSmartRoute = nextPlan.smartRouteSteps.map(step => step.testId);
-        }
-
-        return {
-          ...p,
-          completedTests: newCompleted,
-          assignedSmartRoute: nextSmartRoute,
-          currentTestId: undefined,
-          status: allDone ? ('all_completed' as const) : ('in_transit' as const),
-          doctorReviewStatus: allDone ? ('reports_ready' as const) : ('awaiting_lab_reports' as const)
-        };
-      }
-      return p;
-    });
-
-    return {
-      ...s,
-      queueTokens: finalTokens,
-      counters: updatedCounters,
-      clinicalReports: [newReport, ...s.clinicalReports],
-      patients: updatedPatients,
-      cumulativeTimeSavedMinutes: s.cumulativeTimeSavedMinutes + 18
-    };
   });
 }
 
-export function prescribeTestsAction(patientId: string, testIds: string[], doctorId?: string) {
-  updateState(s => {
-    const patient = s.patients.find(p => p.id === patientId);
-    if (!patient) return s;
-    const doctor = (doctorId ? s.doctors.find(d => d.id === doctorId) : null) || s.doctors.find(d => d.id === s.selectedDoctorId) || s.doctors.find(d => d.id === patient.prescribedDoctorId) || s.doctors[0];
-
-    const patHospId = patient.hospitalId || doctor.hospitalId || s.currentHospitalId;
-    const newTokens: QueueToken[] = [];
-    const updatedActiveTokenIds = { ...patient.activeTokenIds };
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    testIds.forEach(testId => {
-      if (!patient.prescribedTests.includes(testId)) {
-        const test = s.tests.find(t => t.id === testId);
-        if (!test) return;
-
-        const deptTokens = s.queueTokens.filter(
-          t => t.departmentId === test.departmentId && (t.hospitalId || 'hosp-metro') === patHospId
-        );
-        const queuePos = deptTokens.filter(t => t.status === 'waiting').length + 1;
-        const tokenNum = `${test.code.split('-')[0]}-${100 + deptTokens.length + 1}`;
-        const tokenId = `tok-${Date.now()}-${test.id}`;
-
-        const token: QueueToken = {
-          id: tokenId,
-          hospitalId: patHospId,
-          tokenNumber: tokenNum,
-          patientId,
-          testId,
-          departmentId: test.departmentId,
-          priority: patient.priority,
-          status: 'waiting',
-          issuedAt: nowStr,
-          queuePosition: queuePos,
-          estimatedWaitMinutes: queuePos * 6
-        };
-
-        newTokens.push(token);
-        updatedActiveTokenIds[testId] = tokenId;
-      }
-    });
-
-    const updatedPrescribed = Array.from(new Set([...patient.prescribedTests, ...testIds]));
-
-    // Determine or assign OPD Consultation Token at the end of the doctor's queue
-    const assignedDoctor = doctor || s.doctors.find(d => d.id === patient.prescribedDoctorId) || s.doctors[0];
-    let opdTokenNumber = patient.opdTokenNumber;
-    if (!opdTokenNumber) {
-      const existingOpdNums = s.queueTokens
-        .filter(t => (t.hospitalId || 'hosp-metro') === patHospId)
-        .map(t => {
-          const m = t.tokenNumber.match(/^[A-Z]+-(\d+)$/);
-          return m ? parseInt(m[1], 10) : 0;
-        });
-      const maxOpd = Math.max(100, ...existingOpdNums);
-      const prefix = patHospId === 'hosp-clinic' ? 'CLN' : (patHospId === 'hosp-east' ? 'DIA' : 'OPD');
-      opdTokenNumber = `${prefix}-${maxOpd + 1}`;
-    }
-
-    // Check existing OPD consultation token
-    const existingOpdToken = s.queueTokens.find(
-      t => t.patientId === patientId && (t.testId === 'opd-consultation' || t.id === patient.activeTokenIds['opd-consultation'])
-    );
-
-    const opdTokenId = existingOpdToken?.id || patient.activeTokenIds['opd-consultation'] || `tok-opd-${Date.now()}-${patientId}`;
-    updatedActiveTokenIds['opd-consultation'] = opdTokenId;
-
-    const docActiveOpdCount = s.queueTokens.filter(
-      t => t.doctorId === assignedDoctor.id && 
-           (t.hospitalId || 'hosp-metro') === patHospId &&
-           t.testId === 'opd-consultation' && 
-           t.status !== 'completed' && 
-           t.patientId !== patientId
-    ).length;
-
-    const opdToken: QueueToken = {
-      id: opdTokenId,
-      hospitalId: patHospId,
-      tokenNumber: opdTokenNumber,
-      patientId,
-      testId: 'opd-consultation',
-      departmentId: 'dept-opd',
-      doctorId: assignedDoctor.id,
-      doctorName: assignedDoctor.name,
-      priority: patient.priority,
-      status: 'awaiting_lab_reports',
-      issuedAt: existingOpdToken?.issuedAt || nowStr,
-      queuePosition: docActiveOpdCount + 1,
-      estimatedWaitMinutes: (docActiveOpdCount + 1) * 8
-    };
-
-    // Calculate initial optimal queue route based on current live department wait lengths!
-    const tempPatient: Patient = {
-      ...patient,
-      hospitalId: patHospId,
-      prescribedTests: updatedPrescribed
-    };
-    const initialPlan = calculateOptimalQueueRoute(
-      tempPatient,
-      s.tests,
-      s.departments,
-      [...s.queueTokens, ...newTokens].filter(t => (t.hospitalId || 'hosp-metro') === patHospId),
-      s.counters.filter(c => (c.hospitalId || 'hosp-metro') === patHospId)
-    );
-    const lockedRoute = initialPlan.smartRouteSteps.map(step => step.testId);
-
-    const updatedPatients = s.patients.map(p => {
-      if (p.id === patientId) {
-        return {
-          ...p,
-          prescribedDoctorId: assignedDoctor.id,
-          prescribedDoctorName: assignedDoctor.name,
-          prescribedDoctorRoom: assignedDoctor.roomNo,
-          prescribedTests: updatedPrescribed,
-          activeTokenIds: updatedActiveTokenIds,
-          assignedSmartRoute: lockedRoute,
-          status: 'checked_in' as const,
-          opdTokenNumber,
-          doctorReviewStatus: 'awaiting_lab_reports' as const
-        };
-      }
-      return p;
-    });
-
-    // Move OPD token to the end of doctor's active queue with awaiting_lab_reports
-    // Remove old OPD token from its earlier slot, re-index other active doctor tokens, and append opdToken
-    let rank = 1;
-    const reindexedTokens = s.queueTokens
-      .filter(t => t.id !== opdTokenId)
-      .map(t => {
-        if (t.doctorId === assignedDoctor.id && (t.hospitalId || 'hosp-metro') === patHospId && t.testId === 'opd-consultation' && t.status !== 'completed') {
-          const updated = {
-            ...t,
-            queuePosition: rank,
-            estimatedWaitMinutes: t.priority === 'emergency' ? 2 : rank * 8
-          };
-          rank++;
-          return updated;
-        }
-        return t;
-      });
-
-    const finalOpdToken: QueueToken = {
-      ...opdToken,
-      queuePosition: rank,
-      estimatedWaitMinutes: rank * 8
-    };
-
-    const finalQueueTokens = [...reindexedTokens, ...newTokens, finalOpdToken];
-
-    return {
-      ...s,
-      patients: updatedPatients,
-      queueTokens: finalQueueTokens
-    };
-  });
-}
-
-export function completeConsultationAction(patientId: string, _consultationNotes?: string) {
-  updateState(s => {
-    const patient = s.patients.find(p => p.id === patientId);
-    if (!patient) return s;
-
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updatedTokens = s.queueTokens.map(t => {
-      if (t.patientId === patientId && (t.testId === 'opd-consultation' || t.id === patient.activeTokenIds['opd-consultation'])) {
-        return {
-          ...t,
-          status: 'completed' as const,
-          completedAt: nowStr,
-          queuePosition: 0
-        };
-      }
-      return t;
-    });
-
-    const docId = patient.prescribedDoctorId;
-    let docRank = 1;
-    const finalTokens = updatedTokens.map(t => {
-      if (t.doctorId === docId && t.testId === 'opd-consultation' && t.status !== 'completed') {
-        const updated = {
-          ...t,
-          queuePosition: docRank,
-          estimatedWaitMinutes: t.priority === 'emergency' ? 2 : docRank * 8
-        };
-        docRank++;
-        return updated;
-      }
-      return t;
-    });
-
-    const updatedPatients = s.patients.map(p => {
-      if (p.id === patientId) {
-        return {
-          ...p,
-          status: 'discharged' as const,
-          doctorReviewStatus: 'completed' as const
-        };
-      }
-      return p;
-    });
-
-    if (s.soundEnabled) {
-      hospitalAudio.playChime();
-    }
-
-    return {
-      ...s,
-      patients: updatedPatients,
-      queueTokens: finalTokens
-    };
-  });
-}
-
-export function markTestCompletedByPatientAction(patientId: string, testId: string, _sourceNotes: string = 'Patient already has this report'): void {
-  updateState(s => {
-    const patient = s.patients.find(p => p.id === patientId);
-    if (!patient) return s;
-
-    const test = s.tests.find(t => t.id === testId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // 1. Mark any waiting or in_progress tokens for this test as completed
-    const updatedTokens = s.queueTokens.map(t => {
-      if (t.patientId === patientId && t.testId === testId) {
-        return { 
-          ...t, 
-          status: 'completed' as const,
-          completedAt: nowStr,
-          queuePosition: 0
-        };
-      }
-      return t;
-    });
-
-    // 2. Add test to patient completedTests
-    const newCompleted = Array.from(new Set([...patient.completedTests, testId]));
-    const allDone = patient.prescribedTests.length > 0 && patient.prescribedTests.every(tid => newCompleted.includes(tid));
-
-    // 3. If all tests done, advance OPD consultation token to reports_ready
-    let finalTokens = updatedTokens;
-    if (allDone) {
-      finalTokens = finalTokens.map(t =>
-        t.patientId === patient.id && t.testId === 'opd-consultation'
-          ? { ...t, status: 'reports_ready' as const }
-          : t
-      );
-      if (s.soundEnabled) {
-        hospitalAudio.playChime();
-      }
-    }
-
-    // 4. Create self-reported clinical report entry
-    const selfReport: ClinicalReport = {
-      id: `rep-prior-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-      hospitalId: patient.hospitalId || s.currentHospitalId,
-      testId: testId,
-      testName: test?.name || 'Diagnostic Investigation',
-      patientId: patient.id,
-      patientUhid: patient.uhid || 'QC-UNKNOWN',
-      patientName: patient.name,
-      technicianName: 'Prior Verified Report (Patient Upload/Present)',
-      counterId: 'OPD-Prior',
-      timestamp: `${nowStr} Today`,
-      status: 'uploaded',
-      summary: `Patient presented existing recent valid ${test?.name || 'investigation'} report. Verified for OPD review.`,
-      metrics: [
-        { label: 'Report Status', value: 'Prior External Report Verified', unit: '', normalRange: 'Standard', flag: 'normal' },
-        { label: 'Submission Mode', value: 'Patient Self-Submitted', unit: '', normalRange: 'Patient', flag: 'normal' }
-      ]
-    };
-
-    // 5. Update patient object and recalculate remaining smart route
-    const updatedPatients = s.patients.map(p => {
-      if (p.id === patientId) {
-        let nextSmartRoute = p.assignedSmartRoute;
-        if (!allDone) {
-          const tempPatient: Patient = {
-            ...p,
-            completedTests: newCompleted
-          };
-          const nextPlan = calculateOptimalQueueRoute(
-            tempPatient,
-            s.tests,
-            s.departments,
-            finalTokens,
-            s.counters
-          );
-          nextSmartRoute = nextPlan.smartRouteSteps.map(step => step.testId);
-        }
-
-        return {
-          ...p,
-          completedTests: newCompleted,
-          assignedSmartRoute: nextSmartRoute,
-          currentTestId: undefined,
-          status: allDone ? ('all_completed' as const) : ('in_transit' as const),
-          doctorReviewStatus: allDone ? ('reports_ready' as const) : ('awaiting_lab_reports' as const)
-        };
-      }
-      return p;
-    });
-
-    return {
-      ...s,
-      patients: updatedPatients,
-      queueTokens: finalTokens,
-      clinicalReports: [selfReport, ...s.clinicalReports],
-      toastNotification: `✓ ${test?.name || 'Test'} marked completed (Prior report registered). Dynamic route updated!`
-    };
-  });
-}
-
-export function loginAsStaffAction(hospitalCode: string, staffIdOrEmail: string, password: string): { success: boolean; error?: string } {
-  const code = hospitalCode.trim().toLowerCase();
-  const hosp = state.hospitals.find(h => 
-    (h.code && h.code.toLowerCase() === code) || 
-    h.id.toLowerCase() === code ||
-    h.name.toLowerCase().includes(code)
-  );
-
-  if (!hosp) {
-    return { success: false, error: `Hospital Code "${hospitalCode}" not recognized in the centralized network.` };
-  }
-
-  const query = staffIdOrEmail.trim().toLowerCase();
-  const staff = state.staffMembers.find(s => 
-    (s.hospitalId || 'qcare-demo') === hosp.id && 
-    (s.staffId.toLowerCase() === query || s.email.toLowerCase() === query)
-  );
-
-  if (!staff) {
-    return { success: false, error: `Staff ID or Email "${staffIdOrEmail}" was not found in ${hosp.name}.` };
-  }
-
-  if (staff.status === 'inactive') {
-    return { success: false, error: `This staff account is currently inactive. Contact Hospital Admin.` };
-  }
-
-  // Password verification: accepts configured password or standard demo defaults
-  const validPassword = staff.password || (staff.role === 'super_admin' || staff.role === 'hospital_admin' ? 'admin123' : 'staff123');
-  if (password !== validPassword && password !== 'admin123' && password !== 'staff123') {
-    return { success: false, error: `Invalid password for ${staff.name}.` };
-  }
-
-  const currentUser: CurrentUser = {
-    id: staff.id,
-    role: staff.role,
-    name: staff.name,
-    identifier: staff.staffId,
-    subtitle: staff.assignedLabName || `${staff.role.replace('_', ' ').toUpperCase()}`,
-    hospitalId: hosp.id,
-    hospitalName: hosp.name,
-    staffId: staff.staffId,
-    assignedLabId: staff.assignedLabId,
-    departmentId: staff.assignedLabId
+function emitChange() {
+  const syncPayload = {
+    patients: state.patients,
+    queueTokens: state.queueTokens,
+    clinicalReports: state.clinicalReports,
+    counters: state.counters,
+    currentUser: state.currentUser,
+    currentHospital: state.currentHospital,
+    activeRole: state.activeRole,
+    activeLanguage: state.activeLanguage,
+    selectedPatientId: state.selectedPatientId,
+    activeBayDepartmentId: state.activeBayDepartmentId,
+    callingAlert: state.callingAlert
   };
 
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem('qcare_clinical_session', JSON.stringify(currentUser));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncPayload));
+      if (state.currentUser) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({
+          currentUser: state.currentUser,
+          currentHospital: state.currentHospital,
+          activeRole: state.activeRole,
+          selectedPatientId: state.selectedPatientId
+        }));
+      } else {
+        localStorage.removeItem(SESSION_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+
+  if (broadcastChannel) {
+    try {
+      broadcastChannel.postMessage({ type: 'SYNC_STATE', payload: syncPayload });
+    } catch {
+      // Ignore broadcast errors
+    }
+  }
+
+  listeners.forEach(listener => listener());
+}
+
+function updateState(updater: (prev: HospitalStoreState) => HospitalStoreState) {
+  state = updater(state);
+  emitChange();
+}
+
+/**
+ * Mint official atomic bay token
+ */
+function mintBayTokenNumber(deptCategory: string, count: number): string {
+  const prefixMap: Record<string, string> = {
+    pathology: 'BLD',
+    biochemistry: 'B',
+    cardiology: 'E',
+    radiology: 'X',
+    ultrasound: 'U',
+    ophthalmology: 'EYE',
+    ent: 'ENT',
+    neurology: 'NEU',
+    pulmonary: 'PFT',
+    orthopedics: 'DEX'
+  };
+  const prefix = prefixMap[deptCategory] || 'T';
+  return `${prefix}-${count + 10}`;
+}
+
+// -------------------------------------------------------------
+// NAVIGATION HISTORY ENGINE (SPA Trapping & Back Flow)
+// -------------------------------------------------------------
+
+let isInternalNavBack = false;
+
+export function isInternalNavigationBack(): boolean {
+  return isInternalNavBack;
+}
+
+export function setInternalNavigationBack(val: boolean) {
+  isInternalNavBack = val;
+}
+
+export function pushNavigationHistory(title?: string): NavigationHistoryEntry[] {
+  const currentEntry: NavigationHistoryEntry = {
+    role: state.activeRole,
+    selectedPatientId: state.selectedPatientId,
+    currentUser: state.currentUser,
+    activeBayDepartmentId: state.activeBayDepartmentId,
+    viewTitle: title || (state.activeRole === 'doctor' ? 'Doctor Chamber' : state.activeRole === 'lab_tech' ? 'Lab Workstation' : 'Patient Pass')
+  };
+
+  const nextHistory = [...(state.navigationHistory || []).slice(-19), currentEntry];
+
+  if (typeof window !== 'undefined' && window.history) {
+    try {
+      window.history.pushState({ qcare: true, depth: nextHistory.length }, '');
+    } catch {
+      // Safe catch for sandbox / iframe
+    }
+  }
+
+  return nextHistory;
+}
+
+export function navigateBackAction(fromPopState: boolean = false): boolean {
+  // 1. If quick search modal is open, close it first
+  if (state.isSearchModalOpen) {
+    closeSearchModalAction();
+    return true;
+  }
+
+  // 2. If we have internal navigation history, pop and restore previous view
+  if (state.navigationHistory && state.navigationHistory.length > 0) {
+    const nextHistory = [...state.navigationHistory];
+    const target = nextHistory.pop()!;
+
+    updateState(prev => ({
+      ...prev,
+      navigationHistory: nextHistory,
+      activeRole: target.role,
+      selectedPatientId: target.selectedPatientId,
+      currentUser: target.currentUser,
+      activeBayDepartmentId: target.activeBayDepartmentId || prev.activeBayDepartmentId,
+      callingAlert: null,
+      toastNotification: target.viewTitle ? `Returned to ${target.viewTitle}` : null
+    }));
+
+    if (!fromPopState && typeof window !== 'undefined' && window.history) {
+      isInternalNavBack = true;
+      try {
+        window.history.back();
+      } catch {}
+      setTimeout(() => {
+        isInternalNavBack = false;
+      }, 150);
+    }
+    return true;
+  }
+
+  // 3. If history is empty but user is currently logged in
+  if (state.currentUser !== null) {
+    if (state.activeRole === 'patient' || state.activeRole === 'lab_tech') {
+      // Return to doctor workstation if in patient or lab view
+      setRoleAction('doctor');
+      if (!fromPopState && typeof window !== 'undefined' && window.history) {
+        isInternalNavBack = true;
+        try {
+          window.history.back();
+        } catch {}
+        setTimeout(() => {
+          isInternalNavBack = false;
+        }, 150);
+      }
+      return true;
+    }
+
+    // In doctor view with no history: sign out gracefully to login screen
+    signOutAction();
+    if (!fromPopState && typeof window !== 'undefined' && window.history) {
+      isInternalNavBack = true;
+      try {
+        window.history.back();
+      } catch {}
+      setTimeout(() => {
+        isInternalNavBack = false;
+      }, 150);
+    }
+    return true;
+  }
+
+  // 4. Already at AuthScreen with 0 history.
+  // Re-push a state so browser doesn't close on further back presses
+  if (fromPopState && typeof window !== 'undefined' && window.history) {
+    try {
+      window.history.pushState({ qcare: true, depth: 1 }, '');
     } catch {}
   }
 
-  updateState(s => {
-    const nextCounter = s.counters.find(c => c.departmentId === staff.assignedLabId && (c.hospitalId || 'hosp-metro') === hosp.id);
+  return false;
+}
+
+// -------------------------------------------------------------
+// STORE ACTIONS
+// -------------------------------------------------------------
+
+export function setRoleAction(role: UserRole) {
+  const nextHistory = role !== state.activeRole ? pushNavigationHistory() : state.navigationHistory;
+  updateState(prev => {
+    let currentUser: CurrentUser | null = prev.currentUser;
+    if (role === 'doctor') {
+      currentUser = {
+        id: 'doc-verma',
+        role: 'doctor',
+        name: prev.currentHospital.doctorName || 'Dr. Ananya Sen',
+        identifier: prev.currentHospital.doctorRoom || 'Chamber 204',
+        subtitle: `${prev.currentHospital.name} (${prev.currentHospital.code})`,
+        avatar: prev.currentHospital.doctorAvatar || '/doctors/doctor_female_1.jpg',
+        gender: prev.currentHospital.doctorGender || 'Female'
+      };
+    } else if (role === 'patient') {
+      const activePat = prev.patients.find(p => p.id === prev.selectedPatientId) || prev.patients[0];
+      currentUser = activePat ? {
+        id: activePat.id,
+        role: 'patient',
+        name: activePat.name,
+        identifier: activePat.uhid,
+        subtitle: activePat.qrSessionId
+      } : null;
+    } else if (role === 'lab_tech') {
+      const activeDept = prev.departments.find(d => d.id === prev.activeBayDepartmentId) || prev.departments[0];
+      const counter = prev.counters.find(c => c.departmentId === activeDept.id);
+      currentUser = {
+        id: counter?.id || 'tech-01',
+        role: 'lab_tech',
+        name: counter?.technicianName || 'Lab Technician',
+        identifier: activeDept.location.room,
+        subtitle: activeDept.name,
+        assignedBayDepartmentId: activeDept.id
+      };
+    }
+    return { ...prev, activeRole: role, currentUser, navigationHistory: nextHistory };
+  });
+}
+
+export function setLanguageAction(lang: Language) {
+  updateState(prev => ({ ...prev, activeLanguage: lang }));
+}
+
+export function setSelectedPatientIdAction(patientId: string | null) {
+  updateState(prev => ({ ...prev, selectedPatientId: patientId }));
+}
+
+export function setActiveBayDepartmentIdAction(deptId: string) {
+  updateState(prev => {
+    const dept = prev.departments.find(d => d.id === deptId);
+    const counter = prev.counters.find(c => c.departmentId === deptId);
     return {
-      ...s,
-      currentUser,
-      currentHospitalId: hosp.id,
-      activeRole: staff.role as ActiveRole,
-      selectedCounterId: nextCounter?.id || s.selectedCounterId,
-      selectedLabDeptId: staff.assignedLabId || s.selectedLabDeptId,
-      auditLogs: [
-        {
-          id: `log-${Date.now()}`,
-          hospitalId: hosp.id,
-          staffId: staff.staffId,
-          staffName: staff.name,
-          staffRole: staff.role,
-          action: 'STAFF_LOGIN',
-          details: `Authenticated into ${staff.role.replace('_', ' ')} workstation`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        },
-        ...s.auditLogs
-      ]
+      ...prev,
+      activeBayDepartmentId: deptId,
+      currentUser: prev.activeRole === 'lab_tech' ? {
+        id: counter?.id || 'tech-01',
+        role: 'lab_tech',
+        name: counter?.technicianName || 'Lab Technician',
+        identifier: dept?.location.room || 'Room 12',
+        subtitle: dept?.name,
+        assignedBayDepartmentId: deptId
+      } : prev.currentUser
     };
   });
+}
+
+export function dismissCallingAlertAction() {
+  updateState(prev => ({ ...prev, callingAlert: null }));
+}
+
+export function showToastAction(message: string) {
+  updateState(prev => ({ ...prev, toastNotification: message }));
+}
+
+export function dismissToastAction() {
+  updateState(prev => ({ ...prev, toastNotification: null }));
+}
+
+/**
+ * Register a new walk-in patient
+ */
+export function registerPatientAction(data: {
+  name: string;
+  age: number | string;
+  gender: 'Male' | 'Female' | 'Other';
+  contact: string;
+  chiefComplaint?: string;
+  priority?: 'standard' | 'emergency';
+}): Patient {
+  const nameVal = validatePatientName(data.name);
+  if (!nameVal.isValid) throw new Error(nameVal.error || 'Invalid patient name');
+
+  const ageVal = validatePatientAge(data.age);
+  if (!ageVal.isValid) throw new Error(ageVal.error || 'Invalid patient age');
+
+  const phoneVal = validatePatientPhone(data.contact);
+  const cleanPhone = phoneVal.isValid ? phoneVal.value : data.contact;
+
+  const serial = Math.floor(1000 + Math.random() * 9000);
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const isSenior = ageVal.value >= 60;
+  const calculatedPriority = data.priority === 'emergency' ? 'emergency' : (isSenior ? 'senior' : 'standard');
+
+  const newPatient: Patient = {
+    id: `pat-${serial}`,
+    uhid: `QC-2026-${serial}`,
+    qrSessionId: `QC-${serial}`,
+    name: nameVal.value,
+    age: ageVal.value,
+    gender: data.gender,
+    contact: cleanPhone,
+    priority: calculatedPriority,
+    doctorPriority: data.priority === 'emergency' ? 'urgent' : 'normal',
+    prescribedDoctorId: state.currentUser?.id || 'doc-on-duty',
+    prescribedDoctorName: state.currentUser?.name || state.currentHospital.doctorName || 'Attending Physician',
+    prescribedDoctorRoom: state.currentUser?.identifier || state.currentHospital.doctorRoom || 'Room 101',
+    chiefComplaint: sanitizeString(data.chiefComplaint || 'Walk-in consultation'),
+    symptoms: sanitizeString(data.chiefComplaint || 'Walk-in consultation'),
+    prescribedTests: [],
+    prescribedTestItems: [],
+    completedTests: [],
+    activeTokenIds: {},
+    status: 'registered',
+    assignedSmartRoute: [],
+    registrationTime: timeStr,
+    opdTokenNumber: `OPD-${state.patients.length + 14}`,
+    doctorReviewStatus: 'awaiting_prescription'
+  };
+
+  updateState(prev => ({
+    ...prev,
+    patients: [newPatient, ...prev.patients],
+    selectedPatientId: newPatient.id,
+    toastNotification: `Patient registered: ${newPatient.name} (${newPatient.opdTokenNumber})`
+  }));
+
+  return newPatient;
+}
+
+/**
+ * Doctor prescribes tests:
+ * 1. Computes optimal lowest-wait route
+ * 2. Mints atomic bay tokens for each prescribed test
+ * 3. Locks first destination (Stability Lock)
+ * 4. Updates patient status to in_transit
+ */
+export function prescribeTestsAction(
+  patientId: string,
+  testIds: string[],
+  doctorPriority: 'normal' | 'priority' | 'urgent' = 'normal',
+  notes?: string
+) {
+  if (testIds.length === 0) return;
+
+  updateState(prev => {
+    const patientIndex = prev.patients.findIndex(p => p.id === patientId);
+    if (patientIndex === -1) return prev;
+
+    const patient = prev.patients[patientIndex];
+    const updatedPatient: Patient = {
+      ...patient,
+      prescribedTests: testIds,
+      doctorPriority,
+      doctorReviewStatus: 'awaiting_lab_reports',
+      status: 'in_transit',
+      notes: notes ? sanitizeString(notes) : patient.notes
+    };
+
+    // Calculate optimal route
+    const plan = calculateOptimalQueueRoute(
+      updatedPatient,
+      prev.tests,
+      prev.departments,
+      prev.queueTokens,
+      prev.counters
+    );
+
+    const smartOrderedIds = plan.smartRouteSteps.map(s => s.testId);
+    const firstLockedTestId = smartOrderedIds[0] || testIds[0];
+
+    // Mint atomic tokens for all prescribed tests
+    const newTokens: QueueToken[] = [];
+    const activeTokenIdsMap: Record<string, string> = {};
+
+    testIds.forEach((tId, idx) => {
+      const test = prev.tests.find(t => t.id === tId);
+      const dept = prev.departments.find(d => d.id === test?.departmentId);
+      const existingInDept = prev.queueTokens.filter(t => t.departmentId === dept?.id).length;
+      const bayTokenNum = mintBayTokenNumber(dept?.category || 'pathology', existingInDept + idx);
+      const activeDeptCounters = prev.counters.filter(c => c.departmentId === dept?.id && c.status === 'active');
+      const counter = activeDeptCounters[0] || prev.counters.find(c => c.departmentId === dept?.id);
+
+      const tokenObj: QueueToken = {
+        id: `tok-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${tId}`,
+        tokenNumber: bayTokenNum,
+        patientId: patient.id,
+        patientName: patient.name,
+        patientUhid: patient.uhid,
+        patientAge: patient.age,
+        patientGender: patient.gender,
+        testId: tId,
+        testName: test?.name || 'Diagnostic Test',
+        departmentId: dept?.id || '',
+        counterId: counter?.id,
+        roomNo: dept?.location.room,
+        priority: patient.priority,
+        doctorPriority,
+        status: 'waiting',
+        issuedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        queuePosition: existingInDept + 1,
+        estimatedWaitMinutes: (existingInDept + 1) * (counter?.averageServiceMinutes || 6)
+      };
+
+      newTokens.push(tokenObj);
+      activeTokenIdsMap[tId] = tokenObj.id;
+    });
+
+    const prescribedTestItems = testIds.map(tId => {
+      const test = prev.tests.find(t => t.id === tId);
+      return {
+        testId: tId,
+        testName: test?.name || 'Test',
+        technicalName: test?.technicalName,
+        priority: doctorPriority,
+        status: 'waiting' as const,
+        preparationInstructions: test?.preparationNotes
+      };
+    });
+
+    const fullyUpdatedPatient: Patient = {
+      ...updatedPatient,
+      assignedSmartRoute: smartOrderedIds,
+      currentLockedDestinationTestId: firstLockedTestId,
+      activeTokenIds: activeTokenIdsMap,
+      prescribedTestItems
+    };
+
+    const nextPatients = [...prev.patients];
+    nextPatients[patientIndex] = fullyUpdatedPatient;
+
+    return {
+      ...prev,
+      patients: nextPatients,
+      queueTokens: [...newTokens, ...prev.queueTokens],
+      toastNotification: `Investigations prescribed for ${patient.name}. First stop: ${plan.smartRouteSteps[0]?.location.room} (${plan.smartRouteSteps[0]?.testName})`
+    };
+  });
+}
+
+/**
+ * Technician calls patient token:
+ * 1. Plays 880Hz -> 440Hz dual chime
+ * 2. Speaks dual-lingual English + Hindi broadcast
+ * 3. Triggers pulsing green calling banner
+ */
+export function callPatientAction(tokenId: string) {
+  const token = state.queueTokens.find(t => t.id === tokenId);
+  if (!token) return;
+
+  const dept = state.departments.find(d => d.id === token.departmentId);
+  const counter = state.counters.find(c => c.id === token.counterId);
+  const roomNo = token.roomNo || dept?.location.room || 'Room 12';
+  const counterName = counter?.name || 'Diagnostic Station';
+
+  hospitalAudio.announceToken(token.tokenNumber, counterName, roomNo, token.patientName);
+
+  updateState(prev => {
+    const updatedTokens = prev.queueTokens.map(t =>
+      t.id === tokenId ? { ...t, status: 'called' as const, calledAt: new Date().toLocaleTimeString() } : t
+    );
+
+    return {
+      ...prev,
+      queueTokens: updatedTokens,
+      callingAlert: {
+        tokenNumber: token.tokenNumber,
+        patientName: token.patientName || 'Patient',
+        roomNo,
+        counterName
+      },
+      toastNotification: `📢 Calling Token ${token.tokenNumber} (${token.patientName}) to ${roomNo}`
+    };
+  });
+}
+
+/**
+ * Put patient on hold (no show)
+ */
+export function putTokenOnHoldAction(tokenId: string) {
+  updateState(prev => ({
+    ...prev,
+    queueTokens: prev.queueTokens.map(t =>
+      t.id === tokenId ? { ...t, status: 'on_hold' as const } : t
+    ),
+    toastNotification: `Token put on-hold.`
+  }));
+}
+
+/**
+ * Recall token from hold
+ */
+export function recallTokenFromHoldAction(tokenId: string) {
+  updateState(prev => ({
+    ...prev,
+    queueTokens: prev.queueTokens.map(t =>
+      t.id === tokenId ? { ...t, status: 'waiting' as const } : t
+    )
+  }));
+  callPatientAction(tokenId);
+}
+
+/**
+ * Lab Technician completes test and uploads clinical report:
+ * 1. Validates metric values against reference ranges and sets flags
+ * 2. Unlocks stability lock
+ * 3. Dynamically calculates next lowest-wait route for remaining tests
+ * 4. If all tests done, marks patient reports_ready
+ */
+export function completeTestAndUploadReportAction(
+  tokenId: string,
+  metricValues: Record<string, string>,
+  technicianNotes: string = ''
+) {
+  const token = state.queueTokens.find(t => t.id === tokenId);
+  if (!token) return;
+
+  const test = state.tests.find(t => t.id === token.testId);
+  const dept = state.departments.find(d => d.id === token.departmentId);
+  const counter = state.counters.find(c => c.id === token.counterId);
+
+  // Compute metrics with flags
+  const metrics: ClinicalMetric[] = (test?.metricTemplates || []).map(tmpl => {
+    const rawVal = metricValues[tmpl.label] || tmpl.defaultValue || '0';
+    const flag = evaluateMetricFlag(rawVal, tmpl.normalRange);
+    return {
+      label: tmpl.label,
+      value: rawVal,
+      unit: tmpl.unit,
+      normalRange: tmpl.normalRange,
+      flag
+    };
+  });
+
+  const isCritical = metrics.some(m => m.flag === 'critical');
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Explicitly record the authenticated lab technician's identity for clinical audit
+  const loggedInTech = (state.currentUser?.role === 'lab_tech' && state.currentUser.name)
+    ? state.currentUser.name
+    : (counter?.technicianName || 'Technician');
+
+  const newReport: ClinicalReport = {
+    id: `rep-${Date.now()}`,
+    testId: token.testId,
+    testName: test?.name || 'Diagnostic Investigation',
+    technicalName: test?.technicalName,
+    patientId: token.patientId,
+    patientUhid: token.patientUhid || '',
+    patientName: token.patientName || '',
+    technicianName: loggedInTech,
+    counterId: counter?.id || '',
+    roomNo: token.roomNo || dept?.location.room || 'Room 12',
+    timestamp: timeStr,
+    status: 'uploaded',
+    summary: `${test?.name} completed successfully. Findings documented.`,
+    metrics,
+    technicianNotes: sanitizeString(technicianNotes),
+    isCritical
+  };
+
+  updateState(prev => {
+    const updatedTokens = prev.queueTokens.map(t =>
+      t.id === tokenId ? { ...t, status: 'completed' as const, completedAt: timeStr } : t
+    );
+
+    const patientIndex = prev.patients.findIndex(p => p.id === token.patientId);
+    let updatedPatients = [...prev.patients];
+
+    if (patientIndex !== -1) {
+      const patient = prev.patients[patientIndex];
+      const completedTests = [...(patient.completedTests || []), token.testId];
+
+      const allDone = patient.prescribedTests.length > 0 &&
+        patient.prescribedTests.every(tId => completedTests.includes(tId));
+
+      // Calculate new dynamic lowest-wait route for remaining tests!
+      const tempPatient: Patient = {
+        ...patient,
+        completedTests,
+        currentLockedDestinationTestId: undefined // Unlock stability lock
+      };
+
+      const newPlan = calculateOptimalQueueRoute(
+        tempPatient,
+        prev.tests,
+        prev.departments,
+        updatedTokens,
+        prev.counters
+      );
+
+      const nextSmartRoute = newPlan.smartRouteSteps.map(s => s.testId);
+      const nextLockedDestination = newPlan.recommendedNextTestId;
+
+      const updatedPrescribedItems = (patient.prescribedTestItems || []).map(item =>
+        item.testId === token.testId
+          ? { ...item, status: 'completed' as const, completedAt: timeStr, completedByStaff: loggedInTech }
+          : item
+      );
+
+      updatedPatients[patientIndex] = {
+        ...patient,
+        completedTests,
+        assignedSmartRoute: nextSmartRoute,
+        currentLockedDestinationTestId: nextLockedDestination,
+        status: allDone ? 'all_completed' : 'in_transit',
+        doctorReviewStatus: allDone ? 'reports_ready' : 'awaiting_lab_reports',
+        prescribedTestItems: updatedPrescribedItems
+      };
+    }
+
+    // Increment counter served count
+    const updatedCounters = prev.counters.map(c =>
+      c.id === counter?.id ? { ...c, servedCountToday: c.servedCountToday + 1 } : c
+    );
+
+    return {
+      ...prev,
+      queueTokens: updatedTokens,
+      clinicalReports: [newReport, ...prev.clinicalReports],
+      patients: updatedPatients,
+      counters: updatedCounters,
+      callingAlert: null,
+      toastNotification: `✅ Test completed: ${test?.name} for ${token.patientName}. Next lowest-wait route updated!`
+    };
+  });
+}
+
+/**
+ * Manual next test switcher / override
+ */
+export function manuallySwitchNextTestAction(patientId: string, newNextTestId: string) {
+  updateState(prev => {
+    const patIdx = prev.patients.findIndex(p => p.id === patientId);
+    if (patIdx === -1) return prev;
+
+    const patient = prev.patients[patIdx];
+    const remaining = patient.prescribedTests.filter(t => !patient.completedTests.includes(t));
+    if (!remaining.includes(newNextTestId)) return prev;
+
+    const tempPatient: Patient = {
+      ...patient,
+      currentLockedDestinationTestId: newNextTestId
+    };
+
+    const newPlan = calculateOptimalQueueRoute(
+      tempPatient,
+      prev.tests,
+      prev.departments,
+      prev.queueTokens,
+      prev.counters
+    );
+
+    const newSmartRoute = newPlan.smartRouteSteps.map(s => s.testId);
+
+    const updatedPatients = [...prev.patients];
+    updatedPatients[patIdx] = {
+      ...patient,
+      currentLockedDestinationTestId: newNextTestId,
+      assignedSmartRoute: newSmartRoute
+    };
+
+    const test = prev.tests.find(t => t.id === newNextTestId);
+    return {
+      ...prev,
+      patients: updatedPatients,
+      toastNotification: `Next destination switched to ${test?.name || newNextTestId}.`
+    };
+  });
+}
+
+/**
+ * Mark a test as already completed (holds external report or sampled earlier).
+ * 1. Appends testId to patient.completedTests
+ * 2. Marks any matching queue token as completed
+ * 3. Adds an uploaded ClinicalReport acknowledging prior completion
+ * 4. Unlocks stability lock and dynamically reroutes remaining tests
+ * 5. Updates patient and queue state
+ */
+export function markTestAlreadyDoneAction(
+  patientId: string,
+  testId: string,
+  notes: string = 'Patient already had test done earlier / holds external report.'
+) {
+  updateState(prev => {
+    const patIdx = prev.patients.findIndex(p => p.id === patientId);
+    if (patIdx === -1) return prev;
+
+    const patient = prev.patients[patIdx];
+    if (patient.completedTests.includes(testId)) return prev;
+
+    const test = prev.tests.find(t => t.id === testId);
+    const dept = prev.departments.find(d => d.id === test?.departmentId);
+    const completedTests = [...(patient.completedTests || []), testId];
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Mark corresponding token as completed
+    const updatedTokens = prev.queueTokens.map(t =>
+      t.patientId === patientId && t.testId === testId
+        ? { ...t, status: 'completed' as const, completedAt: timeStr }
+        : t
+    );
+
+    const allDone = patient.prescribedTests.length > 0 &&
+      patient.prescribedTests.every(tId => completedTests.includes(tId));
+
+    // Dynamic reroute without stability lock
+    const tempPatient: Patient = {
+      ...patient,
+      completedTests,
+      currentLockedDestinationTestId: undefined
+    };
+
+    const newPlan = calculateOptimalQueueRoute(
+      tempPatient,
+      prev.tests,
+      prev.departments,
+      updatedTokens,
+      prev.counters
+    );
+
+    const nextSmartRoute = newPlan.smartRouteSteps.map(s => s.testId);
+    const nextLockedDestination = newPlan.recommendedNextTestId;
+
+    const updatedPrescribedItems = (patient.prescribedTestItems || []).map(item =>
+      item.testId === testId
+        ? { ...item, status: 'completed' as const, completedAt: timeStr }
+        : item
+    );
+
+    const updatedPatient: Patient = {
+      ...patient,
+      completedTests,
+      assignedSmartRoute: nextSmartRoute,
+      currentLockedDestinationTestId: nextLockedDestination,
+      status: allDone ? 'all_completed' : 'in_transit',
+      doctorReviewStatus: allDone ? 'reports_ready' : 'awaiting_lab_reports',
+      prescribedTestItems: updatedPrescribedItems
+    };
+
+    const nextPatients = [...prev.patients];
+    nextPatients[patIdx] = updatedPatient;
+
+    // Create clinical report entry acknowledging prior/external completion
+    const newReport: ClinicalReport = {
+      id: `rep-ext-${Date.now()}-${testId}`,
+      testId,
+      testName: test?.name || 'Diagnostic Investigation',
+      technicalName: test?.technicalName,
+      patientId: patient.id,
+      patientUhid: patient.uhid,
+      patientName: patient.name,
+      technicianName: 'Verified Earlier / External',
+      counterId: 'external',
+      roomNo: dept?.location.room || 'Room 12',
+      timestamp: timeStr,
+      status: 'uploaded',
+      summary: `${test?.name || 'Test'} verified as completed earlier. Prior clinical findings acknowledged.`,
+      metrics: (test?.metricTemplates || []).map(tmpl => ({
+        label: tmpl.label,
+        value: tmpl.defaultValue || 'Normal',
+        unit: tmpl.unit,
+        normalRange: tmpl.normalRange,
+        flag: 'normal' as const
+      })),
+      technicianNotes: sanitizeString(notes),
+      isCritical: false
+    };
+
+    return {
+      ...prev,
+      patients: nextPatients,
+      queueTokens: updatedTokens,
+      clinicalReports: [newReport, ...prev.clinicalReports],
+      toastNotification: `✓ ${test?.name || 'Investigation'} marked as already done. Next route updated!`
+    };
+  });
+}
+
+/**
+ * Technician skips current token in queue:
+ * Moves this token to the back of the waiting queue for this department,
+ * allowing the next waiting patient to be served immediately.
+ */
+export function skipTokenAction(tokenId: string) {
+  updateState(prev => {
+    const token = prev.queueTokens.find(t => t.id === tokenId);
+    if (!token) return prev;
+
+    const deptTokens = prev.queueTokens.filter(
+      t => t.departmentId === token.departmentId && (t.status === 'waiting' || t.status === 'called')
+    );
+
+    if (deptTokens.length <= 1) {
+      return {
+        ...prev,
+        queueTokens: prev.queueTokens.map(t => t.id === tokenId ? { ...t, status: 'waiting' as const } : t),
+        callingAlert: prev.callingAlert?.tokenNumber === token.tokenNumber ? null : prev.callingAlert,
+        toastNotification: `Token ${token.tokenNumber} is the only token in queue.`
+      };
+    }
+
+    const otherTokens = prev.queueTokens.filter(t => t.id !== tokenId);
+    const updatedToken: QueueToken = {
+      ...token,
+      status: 'waiting',
+      queuePosition: deptTokens.length
+    };
+
+    return {
+      ...prev,
+      queueTokens: [...otherTokens, updatedToken],
+      callingAlert: prev.callingAlert?.tokenNumber === token.tokenNumber ? null : prev.callingAlert,
+      toastNotification: `⏭️ Skipped token ${token.tokenNumber}. Serving next in queue.`
+    };
+  });
+}
+
+/**
+ * Doctor verifies reports and discharges patient
+ */
+export function verifyAndDischargePatientAction(patientId: string, doctorConclusionNotes: string = '') {
+  updateState(prev => {
+    const patIdx = prev.patients.findIndex(p => p.id === patientId);
+    if (patIdx === -1) return prev;
+
+    const patient = prev.patients[patIdx];
+    const updatedPatients = [...prev.patients];
+    updatedPatients[patIdx] = {
+      ...patient,
+      status: 'discharged',
+      doctorReviewStatus: 'completed',
+      notes: sanitizeString(doctorConclusionNotes)
+    };
+
+    const updatedReports = prev.clinicalReports.map(r =>
+      r.patientId === patientId ? { ...r, status: 'verified_by_doctor' as const, doctorNotes: sanitizeString(doctorConclusionNotes) } : r
+    );
+
+    return {
+      ...prev,
+      patients: updatedPatients,
+      clinicalReports: updatedReports,
+      toastNotification: `Patient ${patient.name} (${patient.opdTokenNumber}) verified and discharged!`
+    };
+  });
+}
+
+/**
+ * Load Demo Scenario (Rameshwar Sharma)
+ */
+export function loadDemoScenarioAction() {
+  const nextHistory = pushNavigationHistory('Previous View');
+  updateState(prev => ({
+    ...prev,
+    navigationHistory: nextHistory,
+    patients: DEMO_SCENARIO_PATIENTS_LIST,
+    queueTokens: DEMO_SCENARIO_TOKENS,
+    clinicalReports: [],
+    selectedPatientId: 'pat-rameshwar',
+    activeRole: 'patient',
+    currentUser: {
+      id: 'pat-rameshwar',
+      role: 'patient',
+      name: 'Rameshwar Sharma',
+      identifier: 'QC-2026-9411',
+      subtitle: 'QC-9411'
+    },
+    toastNotification: '🎉 Demo Scenario Loaded: Rameshwar Sharma (QC-9411) active on Mobile Boarding Pass!'
+  }));
+}
+
+/**
+ * Load Doctor OPD Demo Queue (4 patients in various clinical workflow states, without leaving Doctor role)
+ */
+export function loadDoctorDemoPatientsAction() {
+  const preparedPatients: Patient[] = [
+    // Case 1: Rameshwar Sharma - Just walked in, needs prescription
+    {
+      ...DEMO_SCENARIO_PATIENTS_LIST[0],
+      doctorReviewStatus: 'awaiting_prescription',
+      prescribedTests: [],
+      completedTests: [],
+      activeTokenIds: {},
+      status: 'registered'
+    },
+    // Case 2: Sita Devi - In Diagnostics at Biochemistry Lab
+    {
+      ...DEMO_SCENARIO_PATIENTS_LIST[1],
+      doctorReviewStatus: 'awaiting_lab_reports',
+      status: 'in_transit'
+    },
+    // Case 3: Vinod Kumar - Lab Reports Ready for Doctor Review
+    {
+      ...DEMO_SCENARIO_PATIENTS_LIST[2],
+      prescribedTests: ['test-cbc', 'test-ecg'],
+      completedTests: ['test-cbc', 'test-ecg'],
+      doctorReviewStatus: 'reports_ready',
+      status: 'all_completed'
+    },
+    // Case 4: Anita Singh - Discharged / Complete
+    {
+      ...DEMO_SCENARIO_PATIENTS_LIST[3],
+      prescribedTests: ['test-ecg'],
+      completedTests: ['test-ecg'],
+      doctorReviewStatus: 'completed',
+      status: 'discharged'
+    }
+  ];
+
+  updateState(prev => ({
+    ...prev,
+    patients: preparedPatients,
+    queueTokens: DEMO_SCENARIO_TOKENS,
+    clinicalReports: [
+      {
+        id: 'rep-vinod-1',
+        testId: 'test-cbc',
+        testName: 'Complete Blood Count (CBC)',
+        technicalName: 'Automated Hematology Profile',
+        patientId: 'pat-bg-2',
+        patientUhid: 'QC-2026-9409',
+        patientName: 'Vinod Kumar',
+        technicianName: 'Sunil Kumar (Phlebotomy Tech)',
+        counterId: 'counter-phleb-1',
+        roomNo: 'Room 12',
+        timestamp: '10:15 AM',
+        status: 'uploaded',
+        summary: 'Mild microcytic hypochromic picture. Platelets adequate.',
+        metrics: [
+          { label: 'Hemoglobin (Hb)', value: '11.8', unit: 'g/dL', normalRange: '13.0 - 17.0', flag: 'low' },
+          { label: 'Total Leukocyte Count (TLC)', value: '7,400', unit: '/uL', normalRange: '4000 - 11000', flag: 'normal' },
+          { label: 'Platelet Count', value: '2,65,000', unit: '/uL', normalRange: '150000 - 450000', flag: 'normal' }
+        ],
+        technicianNotes: 'Venipuncture performed smoothly. Patient advised to rest 5 mins.'
+      },
+      {
+        id: 'rep-vinod-2',
+        testId: 'test-ecg',
+        testName: '12-Lead Electrocardiogram (ECG)',
+        technicalName: 'Electrocardiography',
+        patientId: 'pat-bg-2',
+        patientUhid: 'QC-2026-9409',
+        patientName: 'Vinod Kumar',
+        technicianName: 'Rajesh K. (Cardio Tech)',
+        counterId: 'counter-ecg-1',
+        roomNo: 'Room 04',
+        timestamp: '10:35 AM',
+        status: 'uploaded',
+        summary: 'Normal sinus rhythm, heart rate 74 bpm, no acute ST-T changes.',
+        metrics: [
+          { label: 'Heart Rate', value: '74', unit: 'bpm', normalRange: '60 - 100', flag: 'normal' },
+          { label: 'Rhythm', value: 'Sinus Rhythm', unit: '', normalRange: 'Sinus Rhythm', flag: 'normal' },
+          { label: 'PR Interval', value: '152', unit: 'ms', normalRange: '120 - 200', flag: 'normal' }
+        ],
+        technicianNotes: 'Baseline recording clean, minimal muscle tremor artifact.'
+      }
+    ],
+    selectedPatientId: preparedPatients[0]?.id || null,
+    toastNotification: 'Sample OPD queue loaded with 4 authentic clinical cases.'
+  }));
+}
+
+/**
+ * Reset to pristine clean slate
+ */
+export function resetToCleanSlateAction() {
+  updateState(prev => ({
+    ...prev,
+    patients: [],
+    queueTokens: [],
+    clinicalReports: [],
+    selectedPatientId: null,
+    activeRole: 'doctor',
+    navigationHistory: [],
+    currentUser: {
+      id: 'doc-verma',
+      role: 'doctor',
+      name: 'Dr. Rajesh Verma',
+      identifier: 'Room 104',
+      subtitle: 'Cardiologist & General Physician'
+    },
+    toastNotification: 'Clean slate restored. Zero walk-ins.'
+  }));
+}
+
+/**
+ * Resolve and switch hospital tenant by hospital ID
+ */
+export function setHospitalByIdAction(hospitalId: string) {
+  const found = findHospitalByQuery(hospitalId) || REGISTERED_HOSPITALS.find(
+    h => h.id === hospitalId || h.code.toUpperCase() === hospitalId.toUpperCase()
+  );
+  if (found) {
+    updateState(prev => {
+      let updatedUser = prev.currentUser;
+      if (prev.currentUser && prev.currentUser.role === 'doctor') {
+        const resolvedGender = found.doctorGender || 'Female';
+        const resolvedAvatar = found.doctorAvatar || resolveIndianDoctorAvatar(found.doctorName, resolvedGender);
+        updatedUser = {
+          ...prev.currentUser,
+          name: found.doctorName || 'Attending Physician',
+          identifier: found.doctorRoom || 'Chamber 101',
+          subtitle: `${found.name} (${found.code})`,
+          avatar: resolvedAvatar,
+          gender: resolvedGender
+        };
+      }
+      return {
+        ...prev,
+        currentHospital: found,
+        currentUser: updatedUser,
+        departments: getDepartmentsForHospital(found.code || found.id),
+        counters: getCountersForHospital(found.code || found.id)
+      };
+    });
+  }
+}
+
+/**
+ * Resolve and switch hospital tenant by hospital code (URL or first visit)
+ */
+export function setHospitalByCodeAction(code: string) {
+  const clean = code.trim();
+  const found = findHospitalByQuery(clean);
+  const targetHosp = found || {
+    ...DEFAULT_HOSPITAL,
+    id: `hosp-${clean.toLowerCase().replace(/[\s-]+/g, '')}`,
+    code: clean.toUpperCase(),
+    name: DEFAULT_HOSPITAL.name,
+    shortName: DEFAULT_HOSPITAL.shortName
+  };
+  updateState(prev => {
+    let updatedUser = prev.currentUser;
+    if (prev.currentUser && prev.currentUser.role === 'doctor') {
+      const resolvedGender = targetHosp.doctorGender || 'Female';
+      const resolvedAvatar = targetHosp.doctorAvatar || resolveIndianDoctorAvatar(targetHosp.doctorName, resolvedGender);
+      updatedUser = {
+        ...prev.currentUser,
+        name: targetHosp.doctorName || 'Attending Physician',
+        identifier: targetHosp.doctorRoom || 'Chamber 101',
+        subtitle: `${targetHosp.name} (${targetHosp.code})`,
+        avatar: resolvedAvatar,
+        gender: resolvedGender
+      };
+    }
+    return {
+      ...prev,
+      currentHospital: targetHosp,
+      currentUser: updatedUser,
+      departments: getDepartmentsForHospital(targetHosp.code || targetHosp.id),
+      counters: getCountersForHospital(targetHosp.code || targetHosp.id)
+    };
+  });
+}
+
+/**
+ * Doctor / Staff authentication
+ */
+/**
+ * Resolves authentic photorealistic Indian doctor profile avatar
+ */
+export function resolveIndianDoctorAvatar(docName?: string, gender?: string): string {
+  const name = (docName || '').toLowerCase();
+  const isFemale = gender === 'Female' || /ananya|sunita|meenakshi|pooja|priya|neha|dr\.\s*(mrs|ms|miss)/i.test(name);
+  const isSeniorMale = /singhal|sharma|kumar|verma|joshi|gupta|sen/i.test(name) && /r\.?\s*k|senior|distinguished|prof/i.test(name);
+  
+  if (isFemale) {
+    return /sunita|resident|young/i.test(name) ? '/doctors/doctor_female_2.jpg' : '/doctors/doctor_female_1.jpg';
+  }
+  return isSeniorMale ? '/doctors/doctor_male_2.jpg' : '/doctors/doctor_male_1.jpg';
+}
+
+export function loginDoctorAction(
+  doctorName: string,
+  clinicName?: string,
+  roomNo?: string,
+  mobile?: string,
+  assistantName?: string,
+  pin?: string,
+  hospitalId?: string
+): { success: boolean; error?: string } {
+  if (pin !== undefined && pin.trim() !== '' && pin.trim() !== '1234') {
+    return { success: false, error: 'Invalid PIN. Please try again.' };
+  }
+
+  const targetHosp = hospitalId
+    ? (findHospitalByQuery(hospitalId) || REGISTERED_HOSPITALS.find(h => h.id === hospitalId || h.code.toUpperCase() === hospitalId.toUpperCase()) || state.currentHospital)
+    : state.currentHospital;
+
+  const cleanDoc = doctorName.trim() || targetHosp.doctorName || 'Attending Physician';
+  const cleanClinic = targetHosp.name;
+  const cleanRoom = roomNo?.trim() || targetHosp.doctorRoom || 'Chamber 101';
+  const displayName = assistantName?.trim()
+    ? `${cleanDoc} (Asst: ${assistantName.trim()})`
+    : cleanDoc;
+
+  const resolvedGender = (targetHosp.doctorName === cleanDoc && targetHosp.doctorGender)
+    ? targetHosp.doctorGender
+    : (/ananya|sunita|meenakshi|pooja|priya|neha/i.test(cleanDoc) ? 'Female' : 'Male');
+  const resolvedAvatar = (targetHosp.doctorName === cleanDoc && targetHosp.doctorAvatar)
+    ? targetHosp.doctorAvatar
+    : resolveIndianDoctorAvatar(cleanDoc, resolvedGender);
+  
+  const nextHistory = pushNavigationHistory('Sign In Gate');
+
+  updateState(prev => ({
+    ...prev,
+    navigationHistory: nextHistory,
+    currentHospital: targetHosp,
+    departments: getDepartmentsForHospital(targetHosp.code || targetHosp.id),
+    counters: getCountersForHospital(targetHosp.code || targetHosp.id),
+    currentUser: {
+      id: `doc-${Date.now()}`,
+      role: 'doctor',
+      name: displayName,
+      identifier: cleanRoom,
+      subtitle: `${cleanClinic} (${targetHosp.code})`,
+      avatar: resolvedAvatar,
+      gender: resolvedGender
+    },
+    activeRole: 'doctor',
+    toastNotification: `Signed in: ${displayName} • ${targetHosp.shortName}`
+  }));
 
   return { success: true };
 }
 
-export function loginAsPatientWithTokenAction(tokenOrId: string): { success: boolean; error?: string; patient?: Patient } {
-  const raw = tokenOrId.trim();
-  const tokenExtracted = raw.includes('/patient/session/')
-    ? raw.split('/patient/session/')[1].split('?')[0].trim()
-    : raw;
-  const query = tokenExtracted.toLowerCase();
-  const cleanDigits = raw.replace(/\D/g, '');
-
-  const patient = state.patients.find(p => 
-    (p.secureQrToken && p.secureQrToken.toLowerCase() === query) ||
-    p.uhid.toLowerCase() === query ||
-    (cleanDigits.length >= 8 && p.contact.replace(/\D/g, '').includes(cleanDigits)) ||
-    p.id.toLowerCase() === query ||
-    state.queueTokens.some(t => t.patientId === p.id && t.tokenNumber.toLowerCase() === query)
-  );
-
-  if (!patient) {
-    return { success: false, error: 'No active patient session found with this QR Token, UHID, or Mobile.' };
+/**
+ * Explicit Diagnostic Bay / Lab Technician Sign In
+ */
+export function loginLabTechAction(
+  techName: string,
+  departmentId: string,
+  pin?: string,
+  hospitalId?: string
+): { success: boolean; error?: string } {
+  if (pin !== undefined && pin.trim() !== '' && pin.trim() !== '1234') {
+    return { success: false, error: 'Invalid PIN. Please try again.' };
   }
 
-  const user: CurrentUser = {
-    id: patient.id,
-    role: 'patient',
-    name: patient.name,
-    identifier: patient.uhid,
-    subtitle: `${patient.age} Yrs / ${patient.gender} • Consulting: ${patient.prescribedDoctorName}`,
-    hospitalId: patient.hospitalId || 'qcare-demo',
-    hospitalName: patient.hospitalName || 'QCare Demo Hospital'
-  };
+  const targetHosp = hospitalId
+    ? (findHospitalByQuery(hospitalId) || REGISTERED_HOSPITALS.find(h => h.id === hospitalId || h.code.toUpperCase() === hospitalId.toUpperCase()) || state.currentHospital)
+    : state.currentHospital;
 
+  const cleanTech = techName.trim() || 'Lab Technician';
+  const targetDepts = getDepartmentsForHospital(targetHosp.code || targetHosp.id);
+  const targetCounters = getCountersForHospital(targetHosp.code || targetHosp.id);
+  const dept = targetDepts.find(d => d.id === departmentId) || targetDepts[0];
+  const counter = targetCounters.find(c => c.departmentId === dept.id);
+
+  const nextHistory = pushNavigationHistory('Sign In Gate');
+
+  updateState(prev => ({
+    ...prev,
+    navigationHistory: nextHistory,
+    currentHospital: targetHosp,
+    departments: targetDepts,
+    counters: targetCounters,
+    activeBayDepartmentId: dept.id,
+    currentUser: {
+      id: counter?.id || `tech-${Date.now()}`,
+      role: 'lab_tech',
+      name: cleanTech,
+      identifier: dept.location.room,
+      subtitle: `${dept.name} • ${targetHosp.shortName}`,
+      assignedBayDepartmentId: dept.id
+    },
+    activeRole: 'lab_tech',
+    toastNotification: `Workstation Active: ${cleanTech} (${dept.name}) • ${targetHosp.shortName}`
+  }));
+
+  return { success: true };
+}
+
+/**
+ * Search Pre-registered Patients across UHID, Name, Token, QR, or Contact
+ */
+export function searchPreRegisteredPatientsAction(query: string): Patient[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const digitsOnly = q.replace(/\D/g, '');
+
+  return state.patients.filter(p => {
+    const nameMatch = p.name.toLowerCase().includes(q);
+    const uhidMatch = p.uhid.toLowerCase().includes(q);
+    const tokenMatch = p.opdTokenNumber?.toLowerCase().includes(q);
+    const qrMatch = p.qrSessionId?.toLowerCase().includes(q);
+    const phoneMatch = digitsOnly.length >= 3 && p.contact.replace(/\D/g, '').includes(digitsOnly);
+    return nameMatch || uhidMatch || tokenMatch || qrMatch || phoneMatch;
+  });
+}
+
+/**
+ * Directly authenticate and open a pre-registered patient's pass
+ */
+export function selectAndLoginPatientAction(patientId: string): boolean {
+  const pat = state.patients.find(p => p.id === patientId);
+  if (!pat) return false;
+
+  const nextHistory = pushNavigationHistory(state.currentUser?.role === 'doctor' ? 'Doctor Workstation' : 'Diagnostic Workstation');
+
+  updateState(prev => ({
+    ...prev,
+    navigationHistory: nextHistory,
+    selectedPatientId: pat.id,
+    currentUser: {
+      id: pat.id,
+      role: 'patient',
+      name: pat.name,
+      identifier: pat.uhid,
+      subtitle: pat.opdTokenNumber
+    },
+    activeRole: 'patient',
+    toastNotification: `Patient pass verified for ${pat.name}`
+  }));
+  return true;
+}
+
+/**
+ * Explicit Patient Search / Pass Lookup
+ */
+export function loginPatientLookupAction(query: string): { success: boolean; error?: string; patients?: Patient[] } {
+  const clean = query.trim();
+  if (!clean) return { success: false, error: 'Please enter a valid Token, UHID, Name, or Mobile number' };
+
+  const matches = searchPreRegisteredPatientsAction(clean);
+  if (matches.length === 1) {
+    selectAndLoginPatientAction(matches[0].id);
+    return { success: true, patients: matches };
+  }
+  if (matches.length > 1) {
+    return { success: true, patients: matches };
+  }
+
+  // Demo Fallback: If no match found by query, automatically seed or log in DEMO_SCENARIO_PATIENTS_LIST[0]
+  const fallbackPatient = state.patients.length > 0 ? state.patients[0] : DEMO_SCENARIO_PATIENTS_LIST[0];
+  if (!state.patients.some(p => p.id === fallbackPatient.id)) {
+    updateState(prev => ({
+      ...prev,
+      patients: [fallbackPatient, ...prev.patients]
+    }));
+  }
+  selectAndLoginPatientAction(fallbackPatient.id);
+  return { success: true, patients: [fallbackPatient] };
+}
+
+/**
+ * Sign Out to Auth Gate Screen
+ */
+export function signOutAction() {
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem('qcare_clinical_session', JSON.stringify(user));
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(STORAGE_KEY);
     } catch {}
   }
-
-  updateState(s => ({
-    ...s,
-    currentUser: user,
-    activeRole: 'patient',
-    currentHospitalId: patient.hospitalId || 'qcare-demo',
-    selectedPatientId: patient.id
+  updateState(prev => ({
+    ...prev,
+    currentUser: null,
+    selectedPatientId: null,
+    callingAlert: null,
+    navigationHistory: [],
+    toastNotification: 'Signed out successfully'
   }));
-
-  return { success: true, patient };
 }
 
-export function loadDemoScenarioRahulAction() {
-  updateState(s => {
-    const freshRahul = JSON.parse(JSON.stringify(DEMO_PATIENT_RAHUL));
-    const cleanCounters = [
-      ...QCARE_DEMO_COUNTERS,
-      ...s.counters.filter(c => c.hospitalId !== 'qcare-demo')
-    ];
-    const cleanTokens = [
-      ...QCARE_DEMO_QUEUE_TOKENS,
-      ...s.queueTokens.filter(t => t.hospitalId !== 'qcare-demo')
-    ];
-    const cleanPatients = [
-      freshRahul,
-      ...s.patients.filter(p => p.id !== freshRahul.id)
-    ];
-
-    return {
-      ...s,
-      currentHospitalId: 'qcare-demo',
-      selectedPatientId: 'pat-rahul-sharma',
-      counters: cleanCounters,
-      queueTokens: cleanTokens,
-      patients: cleanPatients,
-      selectedCounterId: 'counter-qdemo-usg-1',
-      selectedLabDeptId: 'dept-ultrasound',
-      toastNotification: 'Rahul Sharma demo scenario loaded! Ultrasound is intelligently recommended first.'
-    };
-  });
-  return DEMO_PATIENT_RAHUL;
-}
-
-export function checkInPatientAtLabAction(patientIdOrToken: string, departmentId: string) {
-  updateState(s => {
-    const raw = patientIdOrToken.trim();
-    const tokenExtracted = raw.includes('/patient/session/')
-      ? raw.split('/patient/session/')[1].split('?')[0].trim()
-      : raw;
-    const query = tokenExtracted.toLowerCase();
-    const cleanDigits = raw.replace(/\D/g, '');
-
-    const pat = s.patients.find(p => 
-      p.id.toLowerCase() === query || 
-      p.uhid.toLowerCase() === query || 
-      (p.secureQrToken && p.secureQrToken.toLowerCase() === query) ||
-      (cleanDigits.length >= 8 && p.contact.replace(/\D/g, '').includes(cleanDigits)) ||
-      s.queueTokens.some(t => t.patientId === p.id && t.tokenNumber.toLowerCase() === query)
-    );
-    if (!pat) return s;
-
-    const dept = s.departments.find(d => d.id === departmentId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updatedTokens = s.queueTokens.map(t => {
-      if (t.patientId === pat.id && t.departmentId === departmentId) {
-        return {
-          ...t,
-          status: 'waiting' as const,
-          calledAt: undefined
-        };
-      }
-      return t;
-    });
-
-    const updatedPatients = s.patients.map(p => {
-      if (p.id === pat.id) {
-        return {
-          ...p,
-          status: 'in_transit' as const
-        };
-      }
-      return p;
-    });
-
-    const newLog: AuditLog = {
-      id: `log-${Date.now()}`,
-      hospitalId: pat.hospitalId || s.currentHospitalId,
-      staffId: s.currentUser?.identifier || 'STAFF-LAB',
-      staffName: s.currentUser?.name || 'Lab Staff',
-      staffRole: 'lab_staff',
-      action: 'PATIENT_CHECKED_IN',
-      patientId: pat.id,
-      patientName: pat.name,
-      details: `Checked in at ${dept?.name || 'Lab'} queue`,
-      timestamp: nowStr
-    };
-
-    return {
-      ...s,
-      queueTokens: updatedTokens,
-      patients: updatedPatients,
-      auditLogs: [newLog, ...s.auditLogs],
-      toastNotification: `${pat.name} checked in at ${dept?.name || 'Lab'}!`
-    };
-  });
-}
-
-export function updateLabAvailabilityAction(departmentId: string, status: 'available' | 'busy' | 'unavailable') {
-  updateState(s => {
-    const dept = s.departments.find(d => d.id === departmentId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updatedDepts = s.departments.map(d =>
-      d.id === departmentId ? { ...d, availabilityStatus: status } : d
-    );
-
-    const updatedCounters = s.counters.map(c => {
-      if (c.departmentId === departmentId) {
-        return {
-          ...c,
-          status: (status === 'unavailable' ? 'closed' : 'active') as CounterStatus
-        };
-      }
-      return c;
-    });
-
-    // Dynamic re-routing: recalculate active patients' routes diverted away from unavailable lab
-    const updatedPatients = s.patients.map(p => {
-      const patHospId = p.hospitalId || 'hosp-metro';
-      if (patHospId !== s.currentHospitalId) return p;
-      if (p.status === 'discharged' || p.status === 'all_completed') return p;
-      if (!p.prescribedTests || p.prescribedTests.length === 0) return p;
-
-      const newPlan = calculateOptimalQueueRoute(
-        p,
-        s.tests,
-        updatedDepts,
-        s.queueTokens,
-        updatedCounters
-      );
-      const nextPendingStep = newPlan.smartRouteSteps.find(st => st.status === 'up_next' || st.status === 'queued');
-      return {
-        ...p,
-        assignedSmartRoute: newPlan.smartRouteSteps.map(st => st.testId),
-        currentTestId: nextPendingStep?.testId || p.currentTestId
-      };
-    });
-
-    const newLog: AuditLog = {
-      id: `log-${Date.now()}`,
-      hospitalId: s.currentHospitalId,
-      staffId: s.currentUser?.identifier || 'ADMIN',
-      staffName: s.currentUser?.name || 'Hospital Admin',
-      staffRole: 'hospital_admin',
-      action: 'LAB_AVAILABILITY_CHANGED',
-      details: `${dept?.name || 'Lab'} availability updated to: ${status.toUpperCase()}`,
-      timestamp: nowStr
-    };
-
-    realtimeSync.broadcast('LAB_AVAILABILITY_CHANGED', {
-      hospitalId: s.currentHospitalId,
-      departmentId,
-      message: `${dept?.name || 'Lab'} availability updated to ${status}`
-    });
-
-    return {
-      ...s,
-      departments: updatedDepts,
-      counters: updatedCounters,
-      patients: updatedPatients,
-      auditLogs: [newLog, ...s.auditLogs],
-      toastNotification: `${dept?.name || 'Lab'} status updated to ${status}!`
-    };
-  });
-}
-
-export function updateMachineCountsAction(departmentId: string, totalCount: number, activeCount: number) {
-  updateState(s => {
-    const dept = s.departments.find(d => d.id === departmentId);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updatedMachines = s.labMachines.map(m => {
-      if (m.departmentId === departmentId && (m.hospitalId || 'qcare-demo') === s.currentHospitalId) {
-        return {
-          ...m,
-          totalCount,
-          activeCount,
-          status: (activeCount === 0 ? 'breakdown' : activeCount < totalCount ? 'degraded' : 'operational') as 'breakdown' | 'degraded' | 'operational'
-        };
-      }
-      return m;
-    });
-
-    const updatedDepts = s.departments.map(d => {
-      if (d.id === departmentId) {
-        return {
-          ...d,
-          totalMachines: totalCount,
-          activeMachines: activeCount,
-          availabilityStatus: (activeCount === 0 ? 'unavailable' : d.availabilityStatus) as any
-        };
-      }
-      return d;
-    });
-
-    const updatedCounters = s.counters.map(c => {
-      if (c.departmentId === departmentId) {
-        return {
-          ...c,
-          status: (activeCount === 0 ? 'closed' : 'active') as CounterStatus
-        };
-      }
-      return c;
-    });
-
-    // Dynamic re-routing: recalculate active patients' routes diverted away from broken machine lab
-    const updatedPatients = s.patients.map(p => {
-      const patHospId = p.hospitalId || 'hosp-metro';
-      if (patHospId !== s.currentHospitalId) return p;
-      if (p.status === 'discharged' || p.status === 'all_completed') return p;
-      if (!p.prescribedTests || p.prescribedTests.length === 0) return p;
-
-      const newPlan = calculateOptimalQueueRoute(
-        p,
-        s.tests,
-        updatedDepts,
-        s.queueTokens,
-        updatedCounters
-      );
-      const nextPendingStep = newPlan.smartRouteSteps.find(st => st.status === 'up_next' || st.status === 'queued');
-      return {
-        ...p,
-        assignedSmartRoute: newPlan.smartRouteSteps.map(st => st.testId),
-        currentTestId: nextPendingStep?.testId || p.currentTestId
-      };
-    });
-
-    const newLog: AuditLog = {
-      id: `log-${Date.now()}`,
-      hospitalId: s.currentHospitalId,
-      staffId: s.currentUser?.identifier || 'ADMIN',
-      staffName: s.currentUser?.name || 'Hospital Admin',
-      staffRole: 'hospital_admin',
-      action: 'MACHINE_AVAILABILITY_CHANGED',
-      details: `${dept?.name || 'Lab'} machines updated: ${activeCount} active / ${totalCount} total.`,
-      timestamp: nowStr
-    };
-
-    realtimeSync.broadcast('MACHINE_COUNT_CHANGED', {
-      hospitalId: s.currentHospitalId,
-      departmentId,
-      message: `${dept?.name || 'Lab'} machines updated: ${activeCount}/${totalCount} active`
-    });
-
-    return {
-      ...s,
-      labMachines: updatedMachines,
-      departments: updatedDepts,
-      counters: updatedCounters,
-      patients: updatedPatients,
-      auditLogs: [newLog, ...s.auditLogs],
-      toastNotification: `${dept?.name} machines updated: ${activeCount}/${totalCount} active`
-    };
-  });
-}
-
-export function createHospitalAction(data: Partial<Hospital>): Hospital {
-  const codeNum = state.hospitals.length + 1;
-  const newHospital: Hospital = {
-    id: `hosp-${Date.now()}`,
-    name: data.name || 'New Hospital Partner',
-    code: data.code || `QCARE-HOSP-00${codeNum}`,
-    shortName: data.shortName || data.name?.split(' ')[0] || 'Hospital',
-    tier: data.tier || 'multi_specialty',
-    tagline: data.tagline || 'Leading multi-specialty clinical facility',
-    address: data.address || 'Medical Enclave, Central City',
-    city: data.city || 'Central City',
-    state: data.state || 'National Capital',
-    contactNumber: data.contactNumber || '+91 11 2000 3000',
-    email: data.email || 'info@hospital.com',
-    numberOfFloors: data.numberOfFloors || 3,
-    status: data.status || 'active',
-    plan: data.plan || 'enterprise',
-    workingHours: data.workingHours || '08:00 AM - 08:00 PM',
-    doctorCount: 2,
-    counterCount: 4,
-    badge: data.badge || 'Partner Hospital',
-    accentColor: 'blue'
-  };
-
-  updateState(s => ({
-    ...s,
-    hospitals: [...s.hospitals, newHospital],
-    auditLogs: [
-      {
-        id: `log-${Date.now()}`,
-        hospitalId: newHospital.id,
-        staffId: s.currentUser?.identifier || 'SUPER-ADMIN',
-        staffName: s.currentUser?.name || 'Super Admin',
-        staffRole: 'super_admin',
-        action: 'HOSPITAL_ONBOARDED',
-        details: `Onboarded hospital: ${newHospital.name} (Code: ${newHospital.code})`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      },
-      ...s.auditLogs
-    ],
-    toastNotification: `Hospital ${newHospital.name} registered successfully!`
-  }));
-
-  return newHospital;
-}
-
-export function toggleHospitalStatusAction(hospitalId: string, status: 'active' | 'inactive') {
-  updateState(s => {
-    const hosp = s.hospitals.find(h => h.id === hospitalId);
-    return {
-      ...s,
-      hospitals: s.hospitals.map(h => h.id === hospitalId ? { ...h, status } : h),
-      auditLogs: [
-        {
-          id: `log-${Date.now()}`,
-          hospitalId,
-          staffId: s.currentUser?.identifier || 'SUPER-ADMIN',
-          staffName: s.currentUser?.name || 'Super Admin',
-          staffRole: 'super_admin',
-          action: 'HOSPITAL_STATUS_CHANGED',
-          details: `Changed ${hosp?.name || hospitalId} status to ${status.toUpperCase()}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        },
-        ...s.auditLogs
-      ],
-      toastNotification: `Hospital status updated to ${status}!`
-    };
-  });
-}
-
-export function createStaffMemberAction(data: Omit<StaffMember, 'id'>): StaffMember {
-  const newStaff: StaffMember = {
-    id: `staff-${Date.now()}`,
-    ...data
-  };
-
-  updateState(s => ({
-    ...s,
-    staffMembers: [...s.staffMembers, newStaff],
-    auditLogs: [
-      {
-        id: `log-${Date.now()}`,
-        hospitalId: data.hospitalId,
-        staffId: s.currentUser?.identifier || 'ADMIN',
-        staffName: s.currentUser?.name || 'Hospital Admin',
-        staffRole: 'hospital_admin',
-        action: 'STAFF_MEMBER_CREATED',
-        details: `Created staff member: ${newStaff.name} (${newStaff.role})`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      },
-      ...s.auditLogs
-    ],
-    toastNotification: `Staff member ${newStaff.name} added successfully!`
-  }));
-
-  return newStaff;
-}
-
-export function toggleStaffStatusAction(staffId: string, status: 'active' | 'inactive') {
-  updateState(s => {
-    const st = s.staffMembers.find(m => m.id === staffId);
-    return {
-      ...s,
-      staffMembers: s.staffMembers.map(m => m.id === staffId ? { ...m, status } : m),
-      auditLogs: [
-        {
-          id: `log-${Date.now()}`,
-          hospitalId: st?.hospitalId || s.currentHospitalId,
-          staffId: s.currentUser?.identifier || 'ADMIN',
-          staffName: s.currentUser?.name || 'Hospital Admin',
-          staffRole: 'hospital_admin',
-          action: 'STAFF_STATUS_CHANGED',
-          details: `Updated ${st?.name || staffId} status to ${status.toUpperCase()}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        },
-        ...s.auditLogs
-      ],
-      toastNotification: `Staff status updated to ${status}!`
-    };
-  });
-}
-
-export function createPatientDiagnosticJourneyAction(data: {
-  name: string;
-  age: number;
-  gender: 'Male' | 'Female' | 'Other';
-  contact: string;
-  uhid?: string;
-  doctorName: string;
-  department: string;
-  doctorPriority: DoctorPriority;
-  tests: {
-    testId: string;
-    priority: DoctorPriority;
-    notes?: string;
-    preparationInstructions?: string;
-    dependencyTestId?: string;
-  }[];
-}): { patient: Patient; qrToken: string } {
-  // Input sanitization and boundary checks
-  const nameVal = validatePatientName(data.name);
-  const cleanName = nameVal.isValid ? nameVal.value : sanitizeString(data.name) || 'Registered Patient';
-  const ageVal = validatePatientAge(data.age);
-  const cleanAge = ageVal.isValid ? ageVal.value : Math.min(130, Math.max(0, Number(data.age) || 30));
-  const phoneVal = validatePatientPhone(data.contact);
-  const cleanContact = phoneVal.isValid ? phoneVal.value : (data.contact ? sanitizeString(data.contact) : '+91 98000 00000');
-  const cleanDoctorName = sanitizeString(data.doctorName) || 'Consulting Physician';
-  const cleanDept = sanitizeString(data.department) || 'General Medicine';
-
-  const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const patId = `pat-${Date.now()}`;
-  const hospId = state.currentHospitalId;
-  const hosp = state.hospitals.find(h => h.id === hospId) || state.hospitals[0];
-
-  const generatedUhid = data.uhid?.trim() || `QC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-  const qrToken = `token-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`;
-  const opdTokenNum = `OPD-${Math.floor(200 + Math.random() * 800)}`;
-  const opdTokenId = `tok-opd-${Date.now()}`;
-
-  const activeTokenIds: Record<string, string> = {
-    'opd-consultation': opdTokenId
-  };
-  const newTokens: QueueToken[] = [];
-  const testIds = data.tests.map(t => t.testId);
-
-  data.tests.forEach((tItem) => {
-    const test = state.tests.find(t => t.id === tItem.testId);
-    const tokenId = `tok-${Date.now()}-${tItem.testId}`;
-    activeTokenIds[tItem.testId] = tokenId;
-
-    const deptTokens = state.queueTokens.filter(
-      t => t.departmentId === test?.departmentId && (t.hospitalId || 'hosp-metro') === hospId && t.status === 'waiting'
-    );
-
-    newTokens.push({
-      id: tokenId,
-      hospitalId: hospId,
-      tokenNumber: `${test?.code.split('-')[0] || 'TST'}-${200 + deptTokens.length + 1}`,
-      patientId: patId,
-      patientName: cleanName,
-      patientUhid: generatedUhid,
-      patientAge: cleanAge,
-      patientGender: data.gender,
-      testId: tItem.testId,
-      testName: test?.name,
-      departmentId: test?.departmentId || '',
-      priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
-      doctorPriority: tItem.priority,
-      status: 'waiting',
-      issuedAt: nowStr,
-      queuePosition: deptTokens.length + 1,
-      estimatedWaitMinutes: (deptTokens.length + 1) * (test?.averageDurationMinutes || 8)
-    });
-  });
-
-  // Doctor consultation token in awaiting_lab_reports state
-  const opdToken: QueueToken = {
-    id: opdTokenId,
-    hospitalId: hospId,
-    tokenNumber: opdTokenNum,
-    patientId: patId,
-    patientName: cleanName,
-    patientUhid: generatedUhid,
-    patientAge: cleanAge,
-    patientGender: data.gender,
-    testId: 'opd-consultation',
-    testName: 'OPD Doctor Consultation',
-    departmentId: 'dept-opd',
-    doctorId: 'doc-01',
-    doctorName: cleanDoctorName,
-    priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
-    doctorPriority: data.doctorPriority,
-    status: 'awaiting_lab_reports',
-    issuedAt: nowStr,
-    queuePosition: 1,
-    estimatedWaitMinutes: 20
-  };
-  newTokens.push(opdToken);
-
-  const newPatient: Patient = {
-    id: patId,
-    hospitalId: hospId,
-    hospitalName: hosp.name,
-    uhid: generatedUhid,
-    name: cleanName,
-    age: cleanAge,
-    gender: data.gender,
-    contact: cleanContact,
-    priority: data.doctorPriority === 'urgent' ? 'emergency' : (data.doctorPriority === 'priority' ? 'senior' : 'standard'),
-    doctorPriority: data.doctorPriority,
-    prescribedDoctorId: 'doc-01',
-    prescribedDoctorName: cleanDoctorName,
-    prescribedDoctorRoom: 'OPD Room 204',
-    department: cleanDept,
-    prescribedTests: testIds,
-    completedTests: [],
-    activeTokenIds,
-    status: 'checked_in',
-    assignedSmartRoute: testIds,
-    assignedNaiveRoute: testIds,
-    registrationTime: nowStr,
-    opdTokenNumber: opdTokenNum,
-    doctorReviewStatus: 'awaiting_lab_reports',
-    secureQrToken: qrToken
-  };
-
-  const initialPlan = calculateOptimalQueueRoute(
-    newPatient,
-    state.tests,
-    state.departments,
-    [...state.queueTokens, ...newTokens],
-    state.counters
+/**
+ * Login/Resolve patient directly from QR scan URL session or QR payload
+ */
+export function loginAsPatientWithSessionAction(sessionIdOrUhid: string, payloadBase64?: string): boolean {
+  const clean = sessionIdOrUhid.trim().toUpperCase();
+  let patient = state.patients.find(
+    p => p.qrSessionId.toUpperCase() === clean || p.uhid.toUpperCase() === clean
   );
 
-  newPatient.assignedSmartRoute = initialPlan.smartRouteSteps.map(s => s.testId);
+  // If not found in current state, auto-hydrate demo or decode encoded payload
+  if (!patient) {
+    if (clean === 'QC-9411' || clean === 'QC-2026-9411' || clean === 'PAT-RAMESHWAR') {
+      loadDemoScenarioAction();
+      patient = state.patients.find(p => p.qrSessionId === 'QC-9411');
+    } else if (payloadBase64) {
+      try {
+        const decoded = JSON.parse(atob(decodeURIComponent(payloadBase64)));
+        if (decoded && decoded.uhid) {
+          const restoredPat: Patient = {
+            id: decoded.id || `pat-${clean.toLowerCase()}`,
+            uhid: decoded.uhid,
+            qrSessionId: clean,
+            name: decoded.name || 'Walk-in Patient',
+            age: decoded.age || 45,
+            gender: decoded.gender || 'Male',
+            contact: decoded.contact || '',
+            priority: decoded.priority || 'standard',
+            doctorPriority: decoded.doctorPriority || 'normal',
+            prescribedDoctorId: decoded.prescribedDoctorId || 'doc-on-duty',
+            prescribedDoctorName: decoded.prescribedDoctorName || 'Attending Physician',
+            prescribedDoctorRoom: decoded.prescribedDoctorRoom || 'Chamber 101',
+            chiefComplaint: decoded.chiefComplaint || 'Consultation',
+            symptoms: decoded.symptoms || '',
+            prescribedTests: decoded.tests || [],
+            prescribedTestItems: [],
+            completedTests: decoded.completed || [],
+            activeTokenIds: {},
+            status: decoded.status || 'in_transit',
+            assignedSmartRoute: decoded.route || decoded.tests || [],
+            currentLockedDestinationTestId: decoded.locked || (decoded.tests ? decoded.tests[0] : undefined),
+            registrationTime: decoded.regTime || 'Today',
+            opdTokenNumber: decoded.token || `OPD-${clean}`,
+            doctorReviewStatus: decoded.docStatus || 'awaiting_lab_reports'
+          };
+          updateState(prev => ({
+            ...prev,
+            patients: [restoredPat, ...prev.patients]
+          }));
+          patient = restoredPat;
+        }
+      } catch {
+        // Ignore malformed payload
+      }
+    }
+  }
 
-  updateState(s => ({
-    ...s,
-    patients: [newPatient, ...s.patients],
-    queueTokens: [...s.queueTokens, ...newTokens],
-    selectedPatientId: newPatient.id,
-    auditLogs: [
-      {
-        id: `log-${Date.now()}`,
-        hospitalId: hospId,
-        staffId: s.currentUser?.identifier || 'STAFF-ASST',
-        staffName: s.currentUser?.name || 'Doctor Assistant',
-        staffRole: 'doctor_assistant',
-        action: 'PATIENT_JOURNEY_CREATED',
-        patientId: newPatient.id,
-        patientName: newPatient.name,
-        details: `Diagnostic journey prescribed with ${testIds.length} investigations. Priority: ${data.doctorPriority.toUpperCase()}`,
-        timestamp: nowStr
+  if (patient) {
+    const nextHistory = pushNavigationHistory('Sign In Gate');
+    updateState(prev => ({
+      ...prev,
+      navigationHistory: nextHistory,
+      selectedPatientId: patient!.id,
+      activeRole: 'patient',
+      currentUser: {
+        id: patient!.id,
+        role: 'patient',
+        name: patient!.name,
+        identifier: patient!.uhid,
+        subtitle: patient!.qrSessionId
       },
-      ...s.auditLogs
-    ],
-    toastNotification: `Diagnostic journey created for ${newPatient.name}!`
+      toastNotification: `📱 Boarding pass opened for ${patient!.name}`
+    }));
+    return true;
+  }
+  return false;
+}
+
+const DEMO_AI_PATIENT_PROFILES = [
+  {
+    name: 'Amitabh Saxena',
+    age: '54',
+    gender: 'Male' as const,
+    contact: '9810423912',
+    chiefComplaint: 'Substernal chest tightness radiating to left shoulder, palpitations on exertion since 2 days',
+    testIds: ['test-ecg', 'test-cbc', 'test-xray-chest']
+  },
+  {
+    name: 'Sangeeta Pillai',
+    age: '49',
+    gender: 'Female' as const,
+    contact: '9820541289',
+    chiefComplaint: 'Uncontrolled polydipsia, excessive fatigue, blurred vision and suspected diabetic neuropathy',
+    testIds: ['test-fbs', 'test-ppbs', 'test-lipid', 'test-retina-oct']
+  },
+  {
+    name: 'Vikramaditya Rao',
+    age: '62',
+    gender: 'Male' as const,
+    contact: '9845019842',
+    chiefComplaint: 'Bilateral knee crepitation, lower lumbar back stiffness, difficulty walking unassisted',
+    testIds: ['test-dexa', 'test-cbc']
+  },
+  {
+    name: 'Pooja Chawla',
+    age: '32',
+    gender: 'Female' as const,
+    contact: '9811234908',
+    chiefComplaint: 'Persistent dry cough with nocturnal breathlessness, allergic bronchial wheeze for 3 weeks',
+    testIds: ['test-spirometry', 'test-xray-chest', 'test-cbc']
+  },
+  {
+    name: 'Mohammed Farooq',
+    age: '41',
+    gender: 'Male' as const,
+    contact: '9833098712',
+    chiefComplaint: 'Unilateral tinnitus in left ear, muffled hearing after viral upper respiratory tract infection',
+    testIds: ['test-audiometry', 'test-tympanometry']
+  },
+  {
+    name: 'Harshvardhan Joshi',
+    age: '28',
+    gender: 'Male' as const,
+    contact: '9890123456',
+    chiefComplaint: 'Episodic morning headaches with aura, transient limb tingling sensation and sensory numbness',
+    testIds: ['test-eeg', 'test-ncs']
+  },
+  {
+    name: 'Sunita Kapoor',
+    age: '57',
+    gender: 'Female' as const,
+    contact: '9811987654',
+    chiefComplaint: 'Progressive visual blurring while reading, ocular pressure feeling and night driving halos',
+    testIds: ['test-retina-oct', 'test-visual-acuity']
+  }
+];
+
+export function setPrefilledWalkinDataAction(data: HospitalStoreState['prefilledWalkinData']) {
+  updateState(prev => ({ ...prev, prefilledWalkinData: data }));
+}
+
+export function openSearchModalAction() {
+  updateState(prev => ({ ...prev, isSearchModalOpen: true }));
+}
+
+export function closeSearchModalAction() {
+  updateState(prev => ({ ...prev, isSearchModalOpen: false }));
+}
+
+export function generateAiDemoPatientAction(): { name: string; uhid: string } {
+  const randomIndex = Math.floor(Math.random() * DEMO_AI_PATIENT_PROFILES.length);
+  const sample = DEMO_AI_PATIENT_PROFILES[randomIndex];
+  const randNum = Math.floor(1000 + Math.random() * 9000);
+  const phone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+
+  const generated = {
+    ...sample,
+    contact: phone
+  };
+
+  updateState(prev => ({
+    ...prev,
+    prefilledWalkinData: generated,
+    isSearchModalOpen: false,
+    toastNotification: `🎲 AI Generated & Loaded: ${generated.name} (${generated.age}Y/${generated.gender})`
   }));
 
-  return { patient: newPatient, qrToken };
+  return { name: generated.name, uhid: `QC-2026-${randNum}` };
 }
 
-export function setLanguageAction(lang: 'en' | 'hi') {
-  updateState(s => ({ ...s, language: lang }));
+/**
+ * Getter for current store state (non-hook access for tests and background workers)
+ */
+export function getHospitalState(): HospitalStoreState {
+  return state;
 }
 
-export function dismissToastAction() {
-  updateState(s => ({ ...s, toastNotification: null }));
-}
-
-export function setToastNotificationAction(msg: string) {
-  updateState(s => ({ ...s, toastNotification: msg }));
-}
-
-export function setSelectedLabDeptAction(deptId: string) {
-  updateState(s => ({ ...s, selectedLabDeptId: deptId }));
-}
+// -------------------------------------------------------------
+// REACT HOOK
+// -------------------------------------------------------------
 
 export function useHospitalStore() {
-  const snap = useSyncExternalStore(subscribe, getSnapshot);
+  const [snapshot, setSnapshot] = useState(state);
 
-  // Authentication & Session Actions
-  const registerPatient = useCallback(registerPatientAction, []);
-
-  const loginAsPatient = useCallback((identifierOrId: string): boolean => {
-    const query = identifierOrId.trim().toLowerCase();
-    const cleanDigits = query.replace(/[^0-9]/g, '');
-    const cleanAlphanum = query.replace(/[^a-z0-9]/g, '');
-
-    const patient = state.patients.find(p => {
-      const pUhid = p.uhid.toLowerCase();
-      const pId = p.id.toLowerCase();
-      const pContactDigits = p.contact.replace(/[^0-9]/g, '');
-      const pName = p.name.toLowerCase();
-
-      return (
-        pId === query ||
-        pUhid === query ||
-        pUhid.replace(/[^a-z0-9]/g, '') === cleanAlphanum ||
-        (cleanDigits.length >= 4 && pContactDigits.includes(cleanDigits)) ||
-        pName === query ||
-        pName.includes(query)
-      );
-    });
-
-    if (!patient) return false;
-
-    const targetHospId = patient.hospitalId || 'hosp-metro';
-    const hosp = state.hospitals.find(h => h.id === targetHospId);
-
-    const user: CurrentUser = {
-      id: patient.id,
-      role: 'patient',
-      name: patient.name,
-      identifier: patient.uhid,
-      subtitle: `${patient.age} Yrs / ${patient.gender} • ${patient.priority === 'senior' ? 'Senior Priority' : 'Standard'}`,
-      hospitalId: targetHospId,
-      hospitalName: hosp?.name
+  useEffect(() => {
+    const handleStoreChange = () => setSnapshot({ ...state });
+    listeners.add(handleStoreChange);
+    return () => {
+      listeners.delete(handleStoreChange);
     };
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('qcare_clinical_session', JSON.stringify(user));
-      } catch {}
-    }
-
-    updateState(s => ({
-      ...s,
-      currentUser: user,
-      activeRole: 'patient',
-      selectedPatientId: patient.id,
-      currentHospitalId: targetHospId
-    }));
-
-    return true;
   }, []);
 
-  const loginAsDoctor = useCallback((doctorId: string): boolean => {
-    const doctor = state.doctors.find(
-      d => d.id === doctorId || d.roomNo.toLowerCase().includes(doctorId.toLowerCase())
-    );
-    if (!doctor) return false;
-
-    const targetHospId = doctor.hospitalId || 'hosp-metro';
-    const hosp = state.hospitals.find(h => h.id === targetHospId);
-
-    const user: CurrentUser = {
-      id: doctor.id,
-      role: 'doctor',
-      name: doctor.name,
-      identifier: doctor.roomNo,
-      subtitle: `${doctor.specialization} • ${doctor.department}`,
-      hospitalId: targetHospId,
-      hospitalName: hosp?.name
-    };
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('qcare_clinical_session', JSON.stringify(user));
-      } catch {}
-    }
-
-    updateState(s => ({
-      ...s,
-      currentUser: user,
-      activeRole: 'doctor',
-      selectedDoctorId: doctor.id,
-      currentHospitalId: targetHospId
-    }));
-
-    return true;
-  }, []);
-
-  const loginAsLabTech = useCallback((counterId: string): boolean => {
-    const counter = state.counters.find(
-      c => c.id === counterId || c.code.toLowerCase() === counterId.toLowerCase()
-    );
-    if (!counter) return false;
-    const dept = state.departments.find(d => d.id === counter.departmentId);
-    const targetHospId = counter.hospitalId || 'hosp-metro';
-    const hosp = state.hospitals.find(h => h.id === targetHospId);
-
-    const user: CurrentUser = {
-      id: counter.id,
-      role: 'lab_tech',
-      name: counter.technicianName,
-      identifier: `${counter.name} (${counter.code})`,
-      subtitle: `${dept?.name} • ${dept?.location.room}`,
-      departmentId: counter.departmentId,
-      counterId: counter.id,
-      hospitalId: targetHospId,
-      hospitalName: hosp?.name
-    };
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('qcare_clinical_session', JSON.stringify(user));
-      } catch {}
-    }
-
-    updateState(s => ({
-      ...s,
-      currentUser: user,
-      activeRole: 'lab_tech',
-      selectedCounterId: counter.id,
-      currentHospitalId: targetHospId
-    }));
-
-    return true;
-  }, []);
-
-  const signOut = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('qcare_clinical_session');
-      } catch {}
-    }
-    updateState(s => ({
-      ...s,
-      currentUser: null
-    }));
-  }, []);
-
-  const switchRole = useCallback((role: ActiveRole) => {
-    updateState(s => {
-      let nextUser: CurrentUser | null = null;
-      if (role === 'patient') {
-        const p = s.patients.find(pt => pt.id === s.selectedPatientId) || s.patients[0];
-        nextUser = {
-          id: p.id,
-          role: 'patient',
-          name: p.name,
-          identifier: p.uhid,
-          subtitle: `${p.age} Yrs / ${p.gender} • ${p.priority === 'senior' ? 'Senior Priority' : 'Standard'}`
-        };
-      } else if (role === 'doctor') {
-        const d = s.doctors.find(doc => doc.id === s.selectedDoctorId) || s.doctors[0];
-        nextUser = {
-          id: d.id,
-          role: 'doctor',
-          name: d.name,
-          identifier: d.roomNo,
-          subtitle: `${d.specialization} • ${d.department}`
-        };
-      } else if (role === 'lab_tech') {
-        const c = s.counters.find(cnt => cnt.id === s.selectedCounterId) || s.counters[0];
-        const dept = s.departments.find(dp => dp.id === c.departmentId);
-        nextUser = {
-          id: c.id,
-          role: 'lab_tech',
-          name: c.technicianName,
-          identifier: `${c.name} (${c.code})`,
-          subtitle: `${dept?.name} • ${dept?.location.room}`,
-          departmentId: c.departmentId,
-          counterId: c.id
-        };
-      }
-
-      if (typeof window !== 'undefined' && nextUser) {
-        try {
-          localStorage.setItem('qcare_clinical_session', JSON.stringify(nextUser));
-        } catch {}
-      }
-
-      return {
-        ...s,
-        activeRole: role,
-        currentUser: nextUser || s.currentUser
-      };
-    });
-  }, []);
-
-  const setActiveRole = useCallback((role: ActiveRole) => {
-    updateState(s => ({ ...s, activeRole: role }));
-  }, []);
-
-  const setSelectedPatient = useCallback((patientId: string) => {
-    updateState(s => {
-      const p = s.patients.find(pt => pt.id === patientId);
-      const updatedUser = s.currentUser?.role === 'patient' && p ? {
-        ...s.currentUser,
-        id: p.id,
-        name: p.name,
-        identifier: p.uhid,
-        subtitle: `${p.age} Yrs / ${p.gender} • ${p.priority === 'senior' ? 'Senior Priority' : 'Standard'}`
-      } : s.currentUser;
-
-      if (typeof window !== 'undefined' && updatedUser && s.currentUser?.role === 'patient') {
-        try {
-          localStorage.setItem('qcare_clinical_session', JSON.stringify(updatedUser));
-        } catch {}
-      }
-
-      return {
-        ...s,
-        selectedPatientId: patientId,
-        currentUser: updatedUser
-      };
-    });
-  }, []);
-
-  const setSelectedCounter = useCallback((counterId: string) => {
-    updateState(s => {
-      const c = s.counters.find(cnt => cnt.id === counterId);
-      const dept = c ? s.departments.find(d => d.id === c.departmentId) : undefined;
-      const updatedUser = s.currentUser?.role === 'lab_tech' && c ? {
-        ...s.currentUser,
-        id: c.id,
-        name: c.technicianName,
-        identifier: `${c.name} (${c.code})`,
-        subtitle: `${dept?.name} • ${dept?.location.room}`,
-        departmentId: c.departmentId,
-        counterId: c.id
-      } : s.currentUser;
-
-      if (typeof window !== 'undefined' && updatedUser && s.currentUser?.role === 'lab_tech') {
-        try {
-          localStorage.setItem('qcare_clinical_session', JSON.stringify(updatedUser));
-        } catch {}
-      }
-
-      return {
-        ...s,
-        selectedCounterId: counterId,
-        currentUser: updatedUser
-      };
-    });
-  }, []);
-
-  const setSelectedDoctor = useCallback((doctorId: string) => {
-    updateState(s => {
-      const d = s.doctors.find(doc => doc.id === doctorId);
-      const updatedUser = s.currentUser?.role === 'doctor' && d ? {
-        ...s.currentUser,
-        id: d.id,
-        name: d.name,
-        identifier: d.roomNo,
-        subtitle: `${d.specialization} • ${d.department}`
-      } : s.currentUser;
-
-      if (typeof window !== 'undefined' && updatedUser && s.currentUser?.role === 'doctor') {
-        try {
-          localStorage.setItem('qcare_clinical_session', JSON.stringify(updatedUser));
-        } catch {}
-      }
-
-      return {
-        ...s,
-        selectedDoctorId: doctorId,
-        currentUser: updatedUser
-      };
-    });
-  }, []);
-
-  const toggleSound = useCallback(() => {
-    updateState(s => {
-      const nextVal = !s.soundEnabled;
-      if (!nextVal) {
-        hospitalAudio.stopAll();
-      } else {
-        hospitalAudio.playChime();
-      }
-      return { ...s, soundEnabled: nextVal };
-    });
-  }, []);
-
-  const toggleAutoTraffic = useCallback(() => {
-    updateState(s => {
-      const nextVal = !s.autoSimulateTraffic;
-      setAutoTrafficTimer(nextVal);
-      return { ...s, autoSimulateTraffic: nextVal };
-    });
-  }, []);
-
-  const callNextToken = useCallback((counterId: string, silent: boolean = false) => {
-    callOrAdvanceCounter(counterId, silent);
-  }, []);
-
-  const callSpecificToken = useCallback((counterId: string, tokenId: string) => {
-    callSpecificTokenInternal(counterId, tokenId);
-  }, []);
-
-  const startTest = useCallback((tokenId: string) => {
-    updateState(s => {
-      const updatedTokens = s.queueTokens.map(t =>
-        t.id === tokenId ? { ...t, status: 'in_progress' as const } : t
-      );
-      return { ...s, queueTokens: updatedTokens };
-    });
-  }, []);
-
-  const putTestOnHold = useCallback((tokenId: string) => {
-    updateState(s => {
-      const token = s.queueTokens.find(t => t.id === tokenId);
-      if (!token) return s;
-
-      const updatedTokens = s.queueTokens.map(t =>
-        t.id === tokenId ? { ...t, status: 'on_hold' as const } : t
-      );
-
-      const updatedCounters = s.counters.map(c =>
-        (c.id === token.counterId || c.currentServingTokenId === token.id)
-          ? { ...c, currentServingTokenId: undefined, currentPatientId: undefined }
-          : c
-      );
-
-      return {
-        ...s,
-        queueTokens: updatedTokens,
-        counters: updatedCounters
-      };
-    });
-  }, []);
-  const completeTestAndUploadReport = useCallback(completeTestAndUploadReportAction, []);
-
-  const signOffReport = useCallback((reportId: string, doctorNotes?: string) => {
-    updateState(s => {
-      const activeDoc = s.doctors.find(d => d.id === s.selectedDoctorId);
-      const updated = s.clinicalReports.map(r => {
-        if (r.id === reportId) {
-          return {
-            ...r,
-            status: 'verified_by_doctor' as const,
-            doctorNotes: doctorNotes || 'Report reviewed. Findings clinically correlated.',
-            doctorSignature: `${activeDoc?.name || 'Consulting Physician'}, ${activeDoc?.specialization || 'MD'}`
-          };
-        }
-        return r;
-      });
-      return { ...s, clinicalReports: updated };
-    });
-  }, []);
-
-  const prescribeTests = useCallback((patientId: string, testIds: string[]) => {
-    prescribeTestsAction(patientId, testIds);
-  }, []);
-
-  const completeConsultation = useCallback(completeConsultationAction, []);
-
-  const simulateRush = useCallback((deptId: string, count: number = 8) => {
-    simulateRushTraffic(deptId, count, state.currentHospitalId);
-  }, []);
-
-  const advanceAllCounters = useCallback(() => {
-    // Advance each active counter in current hospital with silent = true to avoid clashing voice synthesis
-    const activeCounters = state.counters.filter(
-      c => c.status === 'active' && (c.hospitalId || 'hosp-metro') === state.currentHospitalId
-    );
-    activeCounters.forEach(c => {
-      callOrAdvanceCounter(c.id, true);
-    });
-
-    // Play a single clean chime
-    if (state.soundEnabled) {
-      hospitalAudio.playChime();
-    }
-  }, []);
-
-  const toggleCounterStatus = useCallback((counterId: string) => {
-    updateState(s => {
-      const updated = s.counters.map(c => {
-        if (c.id === counterId) {
-          const nextStatus = c.status === 'active' ? 'closed' : 'active';
-          return { ...c, status: nextStatus as 'active' | 'closed' };
-        }
-        return c;
-      });
-      return { ...s, counters: updated };
-    });
-  }, []);
-
-  const startGuidedWalkthroughDemo = useCallback(() => {
-    if (autoTrafficInterval) {
-      clearInterval(autoTrafficInterval);
-      autoTrafficInterval = null;
-    }
-
-    const walkthroughPatient: Patient = {
-      id: 'pat-walkthrough',
-      hospitalId: 'hosp-metro',
-      hospitalName: 'CityCare Multi-Specialty Hospital (Metro Campus)',
-      uhid: 'QC-2026-001',
-      name: 'Rohan Verma',
-      age: 32,
-      gender: 'Male',
-      contact: '+91 98200 11223',
-      priority: 'standard',
-      prescribedDoctorId: 'doc-sarah',
-      prescribedDoctorName: 'Dr. Sarah Khan',
-      prescribedDoctorRoom: 'OPD Room 12',
-      currentIllness: 'High fever, acute chest tightness & persistent dry cough for 3 days',
-      symptoms: 'High fever & chest tightness',
-      prescribedTests: [],
-      completedTests: [],
-      currentTestId: undefined,
-      activeTokenIds: {
-        'opd-consultation': 'tok-opd-walkthrough'
-      },
-      status: 'checked_in',
-      assignedSmartRoute: [],
-      assignedNaiveRoute: [],
-      registrationTime: '09:00 AM',
-      opdTokenNumber: 'OPD-101',
-      doctorReviewStatus: 'awaiting_prescription'
-    };
-
-    const cleanCounters: Counter[] = ALL_INITIAL_COUNTERS.map(c => ({
-      ...c,
-      status: 'active',
-      currentServingTokenId: undefined,
-      currentPatientId: undefined,
-      servedCountToday: 0
-    }));
-
-    const doctorUser: CurrentUser = {
-      id: 'doc-sarah',
-      role: 'doctor',
-      name: 'Dr. Sarah Khan',
-      identifier: 'OPD Room 12',
-      subtitle: 'Consultant Physician & Diabetologist • General Medicine OPD',
-      hospitalId: 'hosp-metro',
-      hospitalName: 'CityCare Multi-Specialty Hospital (Metro Campus)'
-    };
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('qcare_clinical_session', JSON.stringify(doctorUser));
-      } catch {}
-    }
-
-    const walkthroughOpdToken: QueueToken = {
-      id: 'tok-opd-walkthrough',
-      hospitalId: 'hosp-metro',
-      tokenNumber: 'OPD-101',
-      patientId: 'pat-walkthrough',
-      testId: 'opd-consultation',
-      departmentId: 'dept-opd',
-      doctorId: 'doc-sarah',
-      doctorName: 'Dr. Sarah Khan',
-      priority: 'standard',
-      status: 'waiting',
-      issuedAt: '09:00 AM',
-      queuePosition: 1,
-      estimatedWaitMinutes: 5
-    };
-
-    updateState(s => ({
-      ...s,
-      currentHospitalId: 'hosp-metro',
-      currentUser: doctorUser,
-      activeRole: 'doctor',
-      selectedDoctorId: 'doc-sarah',
-      selectedPatientId: 'pat-walkthrough',
-      patients: [walkthroughPatient],
-      queueTokens: [walkthroughOpdToken],
-      clinicalReports: [],
-      counters: cleanCounters
-    }));
-  }, []);
-
-  const resetToCleanHospital = useCallback(() => {
-    if (autoTrafficInterval) {
-      clearInterval(autoTrafficInterval);
-      autoTrafficInterval = null;
-    }
-
-    const cleanCounters: Counter[] = ALL_INITIAL_COUNTERS.map(c => ({
-      ...c,
-      status: 'active',
-      currentServingTokenId: undefined,
-      currentPatientId: undefined,
-      servedCountToday: 0
-    }));
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('qcare_clinical_session');
-      } catch {}
-    }
-
-    updateState(s => ({
-      ...s,
-      currentUser: null,
-      activeRole: 'patient',
-      patients: [],
-      queueTokens: [],
-      clinicalReports: [],
-      counters: cleanCounters
-    }));
-  }, []);
-
-  const resetToFullDemoHospital = useCallback(() => {
-    if (autoTrafficInterval) {
-      clearInterval(autoTrafficInterval);
-      autoTrafficInterval = null;
-    }
-
-    updateState(s => ({
-      ...s,
-      currentHospitalId: 'hosp-metro',
-      departments: INITIAL_DEPARTMENTS,
-      tests: INITIAL_TESTS,
-      counters: ALL_INITIAL_COUNTERS,
-      patients: ALL_INITIAL_PATIENTS,
-      queueTokens: ALL_INITIAL_QUEUE_TOKENS,
-      clinicalReports: ALL_INITIAL_CLINICAL_REPORTS,
-      doctors: ALL_INITIAL_DOCTORS,
-      selectedPatientId: 'pat-rajesh',
-      selectedCounterId: 'counter-bld-1',
-      selectedDoctorId: 'doc-01'
-    }));
-  }, []);
-
-  const resetToDemoBaseline = useCallback(() => {
-    resetToFullDemoHospital();
-  }, [resetToFullDemoHospital]);
-
-  const setHospital = useCallback((hospitalId: string) => {
-    setHospitalInternal(hospitalId);
-  }, []);
-
-  const loginAsStaff = useCallback(loginAsStaffAction, []);
-  const loginAsPatientWithToken = useCallback(loginAsPatientWithTokenAction, []);
-  const loadDemoScenarioRahul = useCallback(loadDemoScenarioRahulAction, []);
-  const checkInPatientAtLab = useCallback(checkInPatientAtLabAction, []);
-  const updateLabAvailability = useCallback(updateLabAvailabilityAction, []);
-  const updateMachineCounts = useCallback(updateMachineCountsAction, []);
-  const createHospital = useCallback(createHospitalAction, []);
-  const toggleHospitalStatus = useCallback(toggleHospitalStatusAction, []);
-  const createStaffMember = useCallback(createStaffMemberAction, []);
-  const toggleStaffStatus = useCallback(toggleStaffStatusAction, []);
-  const createPatientDiagnosticJourney = useCallback(createPatientDiagnosticJourneyAction, []);
-  const setLanguage = useCallback(setLanguageAction, []);
-  const dismissToast = useCallback(dismissToastAction, []);
-  const setToastNotification = useCallback(setToastNotificationAction, []);
-  const setSelectedLabDept = useCallback(setSelectedLabDeptAction, []);
-  const markTestCompletedByPatient = useCallback(markTestCompletedByPatientAction, []);
-
-  const currentHospital = useMemo(() => {
-    return snap.hospitals.find(h => h.id === snap.currentHospitalId) || snap.hospitals[0];
-  }, [snap.hospitals, snap.currentHospitalId]);
-
-  // Scoped lists for the selected hospital (Strict Tenant Isolation)
-  const scopedPatients = useMemo(() => {
-    return snap.patients.filter(p => (p.hospitalId || 'hosp-metro') === snap.currentHospitalId);
-  }, [snap.patients, snap.currentHospitalId]);
-
-  const scopedDoctors = useMemo(() => {
-    return snap.doctors.filter(d => {
-      const docHosp = d.hospitalId || (d.id.startsWith('doc-metro') ? 'hosp-metro' : d.id.includes('clinic') ? 'hosp-clinic' : d.id.includes('east') ? 'hosp-east' : 'qcare-demo');
-      return docHosp === snap.currentHospitalId;
-    });
-  }, [snap.doctors, snap.currentHospitalId]);
-
-  const scopedCounters = useMemo(() => {
-    return snap.counters.filter(c => (c.hospitalId || 'hosp-metro') === snap.currentHospitalId);
-  }, [snap.counters, snap.currentHospitalId]);
-
-  const scopedTokens = useMemo(() => {
-    return snap.queueTokens.filter(t => (t.hospitalId || 'hosp-metro') === snap.currentHospitalId);
-  }, [snap.queueTokens, snap.currentHospitalId]);
-
-  const scopedReports = useMemo(() => {
-    return snap.clinicalReports.filter(r => (r.hospitalId || 'hosp-metro') === snap.currentHospitalId);
-  }, [snap.clinicalReports, snap.currentHospitalId]);
-
-  const scopedStaff = useMemo(() => {
-    return snap.staffMembers.filter(s => (s.hospitalId || 'qcare-demo') === snap.currentHospitalId);
-  }, [snap.staffMembers, snap.currentHospitalId]);
-
-  const scopedMachines = useMemo(() => {
-    return snap.labMachines.filter(m => (m.hospitalId || 'qcare-demo') === snap.currentHospitalId);
-  }, [snap.labMachines, snap.currentHospitalId]);
-
-  const scopedAuditLogs = useMemo(() => {
-    return snap.auditLogs.filter(l => (l.hospitalId || 'qcare-demo') === snap.currentHospitalId);
-  }, [snap.auditLogs, snap.currentHospitalId]);
-
-  const scopedFloorRooms = useMemo(() => {
-    return snap.floorRooms.filter(r => (r.hospitalId || 'qcare-demo') === snap.currentHospitalId);
-  }, [snap.floorRooms, snap.currentHospitalId]);
-
-  // Compute selected patient reactively from scoped patients
-  const selectedPatient = useMemo(() => {
-    return scopedPatients.find(p => p.id === snap.selectedPatientId) || scopedPatients[0] || snap.patients[0];
-  }, [scopedPatients, snap.selectedPatientId, snap.patients]);
-
-  // Compute routing plan reactively from snap whenever patient, tokens, counters, or tests change
-  const currentRoutingPlan: QueueRoutingPlan = useMemo(() => {
-    if (!selectedPatient) {
-      return {
+  const selectedPatient = snapshot.patients.find(p => p.id === snapshot.selectedPatientId) || snapshot.patients[0] || null;
+
+  const currentRoutingPlan = selectedPatient
+    ? calculateOptimalQueueRoute(selectedPatient, snapshot.tests, snapshot.departments, snapshot.queueTokens, snapshot.counters)
+    : {
         patientId: '',
         calculatedAt: '',
         smartRouteSteps: [],
@@ -2697,98 +1662,48 @@ export function useHospitalStore() {
         fastingSatisfied: true,
         transitTotalMinutes: 0
       };
-    }
-    const patHospId = selectedPatient.hospitalId || snap.currentHospitalId;
-    return calculateOptimalQueueRoute(
-      selectedPatient,
-      snap.tests,
-      snap.departments,
-      snap.queueTokens.filter(t => (t.hospitalId || 'hosp-metro') === patHospId),
-      snap.counters.filter(c => (c.hospitalId || 'hosp-metro') === patHospId)
-    );
-  }, [selectedPatient, snap.tests, snap.departments, snap.queueTokens, snap.counters]);
 
   return {
-    // Reactive Snapshots & Tenant Scoped Collections
-    currentUser: snap.currentUser,
-    currentHospitalId: snap.currentHospitalId,
-    currentHospital,
-    hospitals: snap.hospitals,
-    departments: snap.departments,
-    tests: snap.tests,
-    counters: scopedCounters,
-    patients: scopedPatients,
-    queueTokens: scopedTokens,
-    clinicalReports: scopedReports,
-    doctors: scopedDoctors,
-    staffMembers: scopedStaff,
-    labMachines: scopedMachines,
-    auditLogs: scopedAuditLogs,
-    floorRooms: scopedFloorRooms,
-    allStaffMembers: snap.staffMembers,
-    allLabMachines: snap.labMachines,
-    allAuditLogs: snap.auditLogs,
-    allCounters: snap.counters,
-    allPatients: snap.patients,
-    allDoctors: snap.doctors,
-    language: snap.language,
-    toastNotification: snap.toastNotification,
-    selectedLabDeptId: snap.selectedLabDeptId,
-    activeRole: snap.activeRole,
-    selectedPatientId: snap.selectedPatientId,
+    ...snapshot,
     selectedPatient,
-    selectedCounterId: snap.selectedCounterId,
-    selectedDoctorId: snap.selectedDoctorId,
-    soundEnabled: snap.soundEnabled,
-    autoSimulateTraffic: snap.autoSimulateTraffic,
-    latestAnnouncement: snap.latestAnnouncement,
-    cumulativeTimeSavedMinutes: snap.cumulativeTimeSavedMinutes,
     currentRoutingPlan,
-
-    // Actions
-    setHospital,
-    registerPatient,
-    loginAsPatient,
-    loginAsDoctor,
-    loginAsLabTech,
-    loginAsStaff,
-    loginAsPatientWithToken,
-    loadDemoScenarioRahul,
-    checkInPatientAtLab,
-    updateLabAvailability,
-    updateMachineCounts,
-    createHospital,
-    toggleHospitalStatus,
-    createStaffMember,
-    toggleStaffStatus,
-    createPatientDiagnosticJourney,
-    setLanguage,
-    dismissToast,
-    setToastNotification,
-    setSelectedLabDept,
-    signOut,
-    switchRole,
-    setActiveRole,
-    setSelectedPatient,
-    setSelectedCounter,
-    setSelectedDoctor,
-    toggleSound,
-    toggleAutoTraffic,
-    callNextToken,
-    callSpecificToken,
-    startTest,
-    putTestOnHold,
-    completeTestAndUploadReport,
-    signOffReport,
-    prescribeTests,
-    completeConsultation,
-    simulateRush,
-    advanceAllCounters,
-    toggleCounterStatus,
-    resetToDemoBaseline,
-    startGuidedWalkthroughDemo,
-    resetToCleanHospital,
-    resetToFullDemoHospital,
-    markTestCompletedByPatient
+    language: snapshot.activeLanguage,
+    setRole: setRoleAction,
+    setLanguage: setLanguageAction,
+    setSelectedPatientId: setSelectedPatientIdAction,
+    setActiveBayDepartmentId: setActiveBayDepartmentIdAction,
+    dismissCallingAlert: dismissCallingAlertAction,
+    showToast: showToastAction,
+    dismissToast: dismissToastAction,
+    registerPatient: registerPatientAction,
+    prescribeTests: prescribeTestsAction,
+    callPatient: callPatientAction,
+    putOnHold: putTokenOnHoldAction,
+    recallFromHold: recallTokenFromHoldAction,
+    completeTestAndUploadReport: completeTestAndUploadReportAction,
+    manuallySwitchNextTest: manuallySwitchNextTestAction,
+    markTestAlreadyDone: markTestAlreadyDoneAction,
+    markTestCompletedByPatient: markTestAlreadyDoneAction,
+    skipToken: skipTokenAction,
+    verifyAndDischargePatient: verifyAndDischargePatientAction,
+    loadDemoScenario: loadDemoScenarioAction,
+    loadDoctorDemoPatients: loadDoctorDemoPatientsAction,
+    resetToCleanSlate: resetToCleanSlateAction,
+    loginAsPatientWithSession: loginAsPatientWithSessionAction,
+    loginDoctor: loginDoctorAction,
+    loginLabTech: loginLabTechAction,
+    loginPatientLookup: loginPatientLookupAction,
+    searchPreRegisteredPatients: searchPreRegisteredPatientsAction,
+    selectAndLoginPatient: selectAndLoginPatientAction,
+    setHospitalByCode: setHospitalByCodeAction,
+    setHospitalById: setHospitalByIdAction,
+    setPrefilledWalkinData: setPrefilledWalkinDataAction,
+    openSearchModal: openSearchModalAction,
+    closeSearchModal: closeSearchModalAction,
+    canGoBack: (snapshot.navigationHistory && snapshot.navigationHistory.length > 0) || snapshot.currentUser !== null,
+    navigateBack: () => navigateBackAction(false),
+    navigateBackAction,
+    generateAiDemoPatient: generateAiDemoPatientAction,
+    signOut: signOutAction
   };
 }

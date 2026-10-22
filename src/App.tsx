@@ -1,119 +1,136 @@
-import { useEffect } from 'react';
-import { Header } from './components/common/Header';
+import React, { useEffect } from 'react';
+import { useHospitalStore, setHospitalByCodeAction, navigateBackAction, isInternalNavigationBack } from './store/useHospitalStore';
 import { AuthScreen } from './components/auth/AuthScreen';
-import { PatientView } from './components/patient/PatientView';
-import { DoctorView } from './components/doctor/DoctorView';
-import { LabView } from './components/lab/LabView';
-import { SuperAdminView } from './components/superadmin/SuperAdminView';
-import { HospitalAdminView } from './components/admin/HospitalAdminView';
-import { DoctorAssistantView } from './components/assistant/DoctorAssistantView';
-import { PatientKioskView } from './components/kiosk/PatientKioskView';
-import { EmergencyHotlineBadge } from './components/common/EmergencyHotlineBadge';
-import { useHospitalStore } from './store/useHospitalStore';
+import { Header } from './components/common/Header';
+import { DoctorPortal } from './components/doctor/DoctorPortal';
+import { PatientPortal } from './components/patient/PatientPortal';
+import { LabPortal } from './components/lab/LabPortal';
+import { GlobalTooltip } from './components/common/GlobalTooltip';
 import { Sparkles, X, ShieldCheck } from 'lucide-react';
 
 export default function App() {
-  const { 
-    currentUser, 
-    activeRole, 
+  const {
+    currentUser,
+    activeRole,
     currentHospital,
-    toastNotification, 
+    toastNotification,
     dismissToast,
-    loginAsPatientWithToken
+    loginAsPatientWithSession
   } = useHospitalStore();
 
-  // Auto-login from real QR Code scan (?session=... or /patient/session/...)
+  // Expose store for test verification in development
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__hospitalStore = useHospitalStore;
+    }
+  }, []);
+
+  // SPA Browser History Interception & Native Back Protection
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Guarantee initial browser history entry so hitting back never exits/closes the website tab
+    try {
+      if (!window.history.state || !window.history.state.qcare) {
+        window.history.replaceState({ qcare: true, root: true, depth: 0 }, '');
+        window.history.pushState({ qcare: true, depth: 1 }, '');
+      }
+    } catch {}
+
+    const handlePopState = () => {
+      // If internal in-app back button triggered this popstate, consume and exit
+      if (isInternalNavigationBack()) {
+        return;
+      }
+
+      // Execute internal store back navigation
+      const handled = navigateBackAction(true);
+      if (!handled) {
+        // If already at root screen (AuthScreen), push trap state back to prevent browser tab closure
+        try {
+          window.history.pushState({ qcare: true, depth: 1 }, '');
+        } catch {}
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // Sync hospital from URL (?hospital=... or ?h=...)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('session') || urlParams.get('token');
-      let pathToken = '';
-      const match = window.location.pathname.match(/\/patient\/session\/([^/?#]+)/);
-      if (match && match[1]) {
-        pathToken = match[1];
+      const hospParam = urlParams.get('hospital') || urlParams.get('h');
+      if (hospParam && hospParam.trim() && hospParam.trim().toUpperCase() !== currentHospital.code) {
+        setHospitalByCodeAction(hospParam.trim());
       }
-      const activeToken = token || pathToken;
-      if (activeToken) {
-        loginAsPatientWithToken(activeToken);
-      }
-    } catch {}
-  }, [loginAsPatientWithToken]);
+    } catch {
+      // Safe catch for query string parsing
+    }
+  }, [currentHospital.code]);
 
-  // Auto-dismiss toast notification after 5 seconds
+  // Auto-login from QR Code scan (?session=... or ?token=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const session = urlParams.get('session') || urlParams.get('token') || urlParams.get('patient');
+      const payload = urlParams.get('p') || urlParams.get('payload') || undefined;
+      if (session) {
+        loginAsPatientWithSession(session, payload);
+      }
+    } catch {
+      // Safe catch for query string parsing
+    }
+  }, [loginAsPatientWithSession]);
+
+  // Auto-dismiss toast notification after 4.5 seconds
   useEffect(() => {
     if (!toastNotification) return;
     const timer = setTimeout(() => {
       dismissToast();
-    }, 5000);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [toastNotification, dismissToast]);
 
-  // If user navigated into touch kiosk mode without staff login
-  if (activeRole === 'kiosk') {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans p-4 sm:p-6 selection:bg-blue-600 selection:text-white">
-        <PatientKioskView />
-      </div>
-    );
-  }
-
-  // If unauthenticated, present the clean hospital portal gate
+  // If user is not signed in and no QR session is active, render the dedicated Auth Gate
   if (!currentUser) {
     return <AuthScreen />;
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white pt-16 sm:pt-20">
-      {/* Global Real-time Live Toast Notification Banner */}
-      {toastNotification && (
-        <div className="fixed top-4 right-4 z-50 max-w-md bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between gap-3 animate-slideIn">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>{toastNotification}</span>
-          </div>
-          <button
-            type="button"
-            onClick={dismissToast}
-            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Top Clinical Header Bar with Session & Quick Switcher */}
+    <div className="min-h-screen text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white relative glass-page-bg">
+      {/* Top Clinical Header Bar - Fixed with Rounded Island */}
       <Header />
 
-      {/* Main Dedicated Portal Views with Clean Background */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
-        {activeRole === 'patient' && <PatientView />}
-        {activeRole === 'doctor' && <DoctorView />}
-        {(activeRole === 'lab_tech' || activeRole === 'lab_staff') && <LabView />}
-        {activeRole === 'super_admin' && <SuperAdminView />}
-        {activeRole === 'hospital_admin' && <HospitalAdminView />}
-        {(activeRole === 'doctor_assistant' || activeRole === 'reception') && <DoctorAssistantView />}
+      {/* Main Dedicated Portal Views */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-16 sm:pt-17 pb-4">
+        {activeRole === 'doctor' && <DoctorPortal />}
+        {activeRole === 'patient' && <PatientPortal />}
+        {activeRole === 'lab_tech' && <LabPortal />}
       </main>
 
-      {/* 24/7 Hospital Emergency & Triage Hotline Floating Anchor */}
-      <EmergencyHotlineBadge />
+      {/* Universal Liquid Glass Tooltip Engine */}
+      <GlobalTooltip />
 
       {/* Clean Hospital Footer */}
-      <footer className="border-t border-slate-200 bg-white py-3.5 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="border-t border-slate-200/80 bg-white/70 backdrop-blur-md py-3 text-xs text-slate-500 print:hidden mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-blue-600 text-white flex items-center justify-center font-black text-[10px]">
-              QC
-            </div>
-            <span className="font-bold text-slate-900">{currentHospital.name}</span>
-            <span className="text-slate-300">•</span>
-            <span>Outpatient Queue & Smart Routing Hub</span>
+            <span className="font-semibold text-slate-700">Qcare</span>
+            <span className="text-slate-300">·</span>
+            <span>{currentHospital.name}</span>
           </div>
-          <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-            <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Multi-Tenant Live Broadcast Active</span>
-            </span>
+          <div className="flex items-center gap-3 text-[11px] text-slate-500">
+            <a href="#support" className="hover:text-slate-800 transition-colors">Support</a>
+            <span>·</span>
+            <a href="#privacy" className="hover:text-slate-800 transition-colors">Privacy</a>
+            <span>·</span>
+            <a href="#terms" className="hover:text-slate-800 transition-colors">Terms</a>
           </div>
         </div>
       </footer>

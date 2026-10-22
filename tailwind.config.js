@@ -7,7 +7,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary Brand: Midnight Obsidian
         obsidian: {
           50: '#F8FAFC',
           100: '#F1F5F9',
@@ -18,8 +17,7 @@ export default {
           950: '#0B192C',
           DEFAULT: '#0F172A',
         },
-        // Signature Accent: Luminescent Alpine Teal
-        teal: {
+        clinical: {
           50: '#F0FDFA',
           100: '#CCFBF1',
           200: '#99F6E4',
@@ -30,84 +28,46 @@ export default {
           700: '#0F766E',
           800: '#115E59',
           900: '#134E4A',
-          950: '#042F2E',
           DEFAULT: '#0D9488',
         },
-        // Warm Human Touch: Soft Warm Amber
-        amber: {
-          50: '#FFFBEB',
-          100: '#FEF3C7',
-          200: '#FDE68A',
-          400: '#FBBF24',
-          500: '#F59E0B',
-          600: '#D97706',
-          700: '#B45309',
-          soft: '#FEF3C7',
-          DEFAULT: '#F59E0B',
-          deep: '#B45309',
-        },
-        // Emergency / Urgent Triage (Strict Isolation): Vivid Coral Red
-        coral: {
-          50: '#FEF2F2',
-          100: '#FEE2E2',
-          200: '#FECACA',
-          500: '#EF4444',
-          600: '#DC2626',
-          700: '#B91C1C',
-          DEFAULT: '#EF4444',
-          surface: '#FEF2F2',
+        medical: {
+          blue: '#1E40AF',
+          cobalt: '#2563EB',
+          sky: '#0284C7',
+          teal: '#0D9488',
+          emerald: '#059669',
+          amber: '#D97706',
+          rose: '#E11D48',
+          red: '#DC2626',
         },
         bg: {
           DEFAULT: '#F8FAFC',
           surface: '#FFFFFF',
           subtle: '#F1F5F9',
-          deep: '#E2E8F0',
-          dark: '#0B192C',
-        },
-        ink: {
-          DEFAULT: '#0F172A',
-          soft: '#334155',
-          muted: '#64748B',
-          faint: '#94A3B8',
-        },
-        brand: {
-          50: '#F0FDFA',
-          100: '#CCFBF1',
-          500: '#14B8A6',
-          600: '#0D9488',
-          700: '#0F766E',
-          800: '#115E59',
-          900: '#0F172A',
-          DEFAULT: '#0D9488',
-          deep: '#0F172A',
-        },
-        hairline: {
-          DEFAULT: 'rgba(148, 163, 184, 0.2)',
-          soft: 'rgba(148, 163, 184, 0.12)',
-          dark: '#1E293B',
+          border: '#E2E8F0',
+          dark: '#0F172A',
         }
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', 'Comfortaa', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        display: ['Plus Jakarta Sans', 'Comfortaa', 'sans-serif'],
-        mono: ['Plus Jakarta Sans', 'Inter', 'monospace'],
+        heading: ['Comfortaa', 'sans-serif'],
+        comfortaa: ['Comfortaa', 'sans-serif'],
+        body: ['Epilogue', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        epilogue: ['Epilogue', 'sans-serif'],
+        sans: ['Epilogue', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
       boxShadow: {
-        'diffused': '0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 10px 25px -5px rgba(15, 23, 42, 0.06)',
-        'clinical': '0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 10px 25px -5px rgba(15, 23, 42, 0.06)',
-        'popover': '0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 20px 30px -10px rgba(15, 23, 42, 0.12)',
-        'teal-glow': '0 0 20px -3px rgba(13, 148, 136, 0.35)',
-        'paper-xs': '0 1px 2px rgba(15, 23, 42, 0.04)',
-        'paper-sm': '0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)',
-        'paper': '0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
-        'paper-lg': '0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.03)',
+        'paper-sm': '0 1px 2px rgba(15, 23, 42, 0.05)',
+        'paper': '0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
+        'paper-lg': '0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03)',
+        'glow-teal': '0 0 24px -4px rgba(13, 148, 136, 0.35)',
+        'glow-red': '0 0 24px -4px rgba(220, 38, 38, 0.35)',
       },
       borderRadius: {
         'card': '16px',
         'modal': '20px',
-        'pill': '9999px',
+        'badge': '8px',
       }
     },
   },
   plugins: [],
-}
+};

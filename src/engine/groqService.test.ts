@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { askQBieAI, QBiePatientContext } from './groqService';
+import { askQBieAI, askQBiePublicAI, QBiePatientContext } from './groqService';
 
 describe('Groq AI Service & Q-Bie Companion Engine', () => {
   const mockContext: QBiePatientContext = {
@@ -78,6 +78,24 @@ describe('Groq AI Service & Q-Bie Companion Engine', () => {
 
     const reply = await askQBieAI('Kahan jana hai ab?', completedContext);
     expect(reply).toContain('डॉ. Dr. Ananya Sen');
+
+    global.fetch = originalFetch;
+  });
+
+  it('differentiates pure greetings from well-being questions in public assistant', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network offline simulation'));
+
+    const greeting = await askQBiePublicAI('hello', 'en');
+    expect(greeting).toContain('Qbie');
+    expect(greeting).not.toContain('badhiya');
+
+    const wellbeing = await askQBiePublicAI('kaise ho', 'en');
+    expect(wellbeing).toContain('badhiya');
+
+    const greetingHi = await askQBiePublicAI('namaste', 'hi');
+    expect(greetingHi).toContain('नमस्ते');
+    expect(greetingHi).not.toContain('ठीक हूँ');
 
     global.fetch = originalFetch;
   });

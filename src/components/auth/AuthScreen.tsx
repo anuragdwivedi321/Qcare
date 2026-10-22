@@ -1,947 +1,1896 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  ArrowRight, 
-  AlertCircle, 
-  Sparkles, 
-  Zap, 
-  Lock, 
-  QrCode, 
-  Monitor, 
-  X, 
-  ChevronRight, 
-  FlaskConical
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useHospitalStore } from '../../store/useHospitalStore';
-import { PriorityLevel } from '../../types';
-import { WhyQCareModal } from '../common/WhyQCareModal';
-import { PrintableReceipt } from '../common/PrintableReceipt';
-import { SearchableCombobox } from '../common/SearchableCombobox';
-import { MedicalTooltip } from '../common/MedicalTooltip';
-import { SecurityPopover } from '../common/SecurityPopover';
-import { HeroDiscoveryBar } from '../common/HeroDiscoveryBar';
-import { AccreditationBar } from '../common/AccreditationBar';
-import { EmergencyHotlineBadge } from '../common/EmergencyHotlineBadge';
+import { askQBiePublicAI, getPublicClinicalFallback } from '../../engine/groqService';
+import { REGISTERED_HOSPITALS, findHospitalByQuery } from '../../data/mockHospitalData';
+import { Hospital } from '../../types';
+import {
+  Globe,
+  Lock,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Sparkles,
+  HelpCircle,
+  FileText,
+  X,
+  Send,
+  Move,
+  Building2,
+  Search
+} from 'lucide-react';
 
-export const AuthScreen: React.FC = () => {
-  const { 
-    currentHospital,
-    hospitals,
-    currentHospitalId,
-    setHospital,
-    patients, 
-    doctors, 
-    tests,
-    counters,
-    departments,
-    queueTokens,
-    registerPatient,
-    loginAsPatient, 
-    loginAsLabTech,
-    loginAsStaff,
-    loginAsPatientWithToken,
-    loadDemoScenarioRahul,
-    setActiveRole
-  } = useHospitalStore();
+// ==========================================
+// QCare Official Tagline
+// ==========================================
+export const QCARE_TAGLINE = {
+  en: "Intelligent Hospital Queue & Diagnostic Flow Orchestration",
+  hi: "स्मार्ट अस्पताल कतार एवं डायग्नोस्टिक प्रवाह प्रबंधन"
+};
 
-  const [activePortalTab, setActivePortalTab] = useState<'patient' | 'staff' | 'lab'>('staff');
-  const [patientMode, setPatientMode] = useState<'lookup' | 'register'>('lookup');
-  const [showWhyModal, setShowWhyModal] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isDemoDrawerOpen, setIsDemoDrawerOpen] = useState(false);
+// ==========================================
+// Authentic Clinical Advisory (Zero Emojis, Pure Editorial Typography)
+// ==========================================
+interface TickerItem {
+  title: { en: string; hi: string };
+  desc: { en: string; hi: string };
+}
 
-  // Staff Login Form State
-  const [staffHospCode, setStaffHospCode] = useState('QCARE-HOSP-001');
-  const [staffIdentifier, setStaffIdentifier] = useState('STAFF-ASST-01');
-  const [staffPassword, setStaffPassword] = useState('staff123');
+export const QCARE_TICKER_UPDATES: TickerItem[] = [
+  {
+    title: { en: 'Fasting Guidelines', hi: 'खाली पेट जांच' },
+    desc: {
+      en: '8–10 hours overnight fasting required for Blood Sugar and Lipid Profile (water permitted)',
+      hi: 'फास्टिंग ब्लड शुगर एवं लिपिड प्रोफाइल के लिए 8–10 घंटे खाली पेट रहना आवश्यक है'
+    }
+  },
+  {
+    title: { en: 'Dynamic Queue Routing', hi: 'स्मार्ट कतार राउटिंग' },
+    desc: {
+      en: 'QCare automatically directs patients to lowest-wait diagnostic counters',
+      hi: 'मरीजों को स्वतः सबसे कम प्रतीक्षा वाले जांच काउंटर पर भेजा जाता है'
+    }
+  },
+  {
+    title: { en: 'Digital Boarding Pass', hi: 'डिजिटल बोर्डिंग पास' },
+    desc: {
+      en: 'Scan printed receipt QR code to track live queue position on your smartphone',
+      hi: 'पर्ची का क्यूआर कोड स्कैन करके फोन पर लाइव टोकन नंबर और कमरा देखें'
+    }
+  },
+  {
+    title: { en: 'Ultrasound Scan Protocol', hi: 'अल्ट्रासाउंड निर्देश' },
+    desc: {
+      en: 'Drink 4–5 glasses of water 30 minutes prior to Pelvic Ultrasound examination',
+      hi: 'पेल्विक अल्ट्रासाउंड से 30 मिनट पहले 4–5 गिलास पानी पीकर ब्लैडर भरा रखें'
+    }
+  },
+  {
+    title: { en: 'Diagnostic Turnaround', hi: 'जांच रिपोर्ट समय' },
+    desc: {
+      en: 'Routine Complete Blood Count (CBC) and Urine analysis reports ready within 45 minutes',
+      hi: 'सीबीसी एवं सामान्य लैब जांच रिपोर्ट 45 मिनट के भीतर तैयार होती हैं'
+    }
+  },
+  {
+    title: { en: 'OPD Consultation Hours', hi: 'ओपीडी परामर्श समय' },
+    desc: {
+      en: 'Monday to Saturday, 08:30 AM – 02:00 PM • Emergency diagnostics 24x7',
+      hi: 'सोमवार से शनिवार, सुबह 08:30 से दोपहर 02:00 बजे • आपातकालीन जांच 24x7'
+    }
+  }
+];
 
-  // Patient Registration Form State
-  const [name, setName] = useState('');
-  const [age, setAge] = useState<number | ''>('');
-  const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
-  const [contact, setContact] = useState('');
-  const [currentIllness, setCurrentIllness] = useState('');
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(doctors[0]?.id || 'doc-01');
-  const [priority, setPriority] = useState<PriorityLevel>('standard');
-  const [isManualPriority, setIsManualPriority] = useState<boolean>(false);
-  const [registeredPatientObj, setRegisteredPatientObj] = useState<any | null>(null);
-  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+// ==========================================
+// Carousel Slides with Real App Modules
+// ==========================================
+interface CarouselSlide {
+  image: string;
+  step: { en: string; hi: string };
+  title: { en: string; hi: string };
+  desc: { en: string; hi: string };
+}
 
-  // Patient Lookup State
-  const [lookupInput, setLookupInput] = useState('');
+const CAROUSEL_SLIDES: CarouselSlide[] = [
+  {
+    image: '/carousel/carousel_1.jpg',
+    step: { en: 'MODULE 1 · OPD DOCTOR DESK', hi: 'मॉड्यूल 1 · डॉक्टर ओपीडी' },
+    title: { en: 'Prescribe Investigations & Print Pass', hi: 'जांच पर्ची एवं क्यूआर टोकन जनरेशन' },
+    desc: { en: 'Select required lab tests for walk-in patients and generate a thermal QR slip.', hi: 'मरीज के लिए जरूरी टेस्ट चुनें और प्रिंटेड क्यूआर पर्ची निकालें।' }
+  },
+  {
+    image: '/carousel/carousel_2.jpg',
+    step: { en: 'MODULE 2 · DIAGNOSTIC WORKSTATION', hi: 'मॉड्यूल 2 · डायग्नोस्टिक काउंटर' },
+    title: { en: 'Token Caller & Sample Collection', hi: 'टोकन कॉलर एवं सैंपल कलेक्शन' },
+    desc: { en: 'Call patient tokens with hospital chime, scan QR codes, and record test data.', hi: 'हॉस्पिटल चाइम के साथ टोकन कॉल करें और सैंपल का स्टेटस अपडेट करें।' }
+  },
+  {
+    image: '/carousel/carousel_3.jpg',
+    step: { en: 'MODULE 3 · PATIENT LIVE PASS', hi: 'मॉड्यूल 3 · पेशेंट लाइव पास' },
+    title: { en: 'Real-Time Room & Wait Tracking', hi: 'लाइव रूम एवं कतार स्थिति' },
+    desc: { en: 'Open live queue boarding pass on phone camera to see assigned chamber and turn.', hi: 'फोन कैमरे से क्यूआर स्कैन करके अपना कमरा नंबर और आगे के मरीज देखें।' }
+  },
+  {
+    image: '/carousel/carousel_4.jpg',
+    step: { en: 'MODULE 4 · CENTRAL MONITORING', hi: 'मॉड्यूल 4 · सेंट्रल मॉनिटरिंग' },
+    title: { en: 'Live Department Queue Telemetry', hi: 'डिपार्टमेंट-वाइज कतार स्थिति' },
+    desc: { en: 'Real-time visibility across all active diagnostic chambers and waiting rooms.', hi: 'सभी एक्टिव जांच काउंटरों और वेटिंग एरिया की स्थिति एक जगह देखें।' }
+  }
+];
 
-  // Auto-flag Senior Citizen if age >= 60 unless user manually picked Emergency
+// ==========================================
+// 4-Box PIN Input
+// ==========================================
+interface PinInputProps {
+  pin: string[];
+  onChange: (pin: string[]) => void;
+  showPin: boolean;
+  onToggleShow: () => void;
+  disabled?: boolean;
+  lang: 'en' | 'hi';
+  autoFocusFirst?: boolean;
+}
+
+const PinInput: React.FC<PinInputProps> = ({
+  pin,
+  onChange,
+  showPin,
+  onToggleShow,
+  disabled = false,
+  lang,
+  autoFocusFirst = true
+}) => {
+  const inputRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null)
+  ];
+
   useEffect(() => {
-    if (!isManualPriority) {
-      if (typeof age === 'number' && age >= 60) {
-        setPriority('senior');
+    if (autoFocusFirst) {
+      inputRefs[0].current?.focus();
+    }
+  }, [autoFocusFirst]);
+
+  const handleInputChange = (index: number, val: string) => {
+    const cleaned = val.replace(/\D/g, '');
+    const char = cleaned.slice(-1);
+    const nextPin = [...pin];
+    nextPin[index] = char;
+    onChange(nextPin);
+
+    if (char && index < 3) {
+      inputRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (pin[index] === '' && index > 0) {
+        inputRefs[index - 1].current?.focus();
+        const nextPin = [...pin];
+        nextPin[index - 1] = '';
+        onChange(nextPin);
       } else {
-        setPriority('standard');
+        const nextPin = [...pin];
+        nextPin[index] = '';
+        onChange(nextPin);
       }
     }
-  }, [age, isManualPriority]);
-
-  const handleStaffLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage(null);
-
-    const res = loginAsStaff(staffHospCode, staffIdentifier, staffPassword);
-    if (!res.success) {
-      setErrorMessage(res.error || 'Invalid staff credentials.');
-    }
   };
 
-  const handleLookupSubmit = (e: React.FormEvent) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    if (!lookupInput.trim()) {
-      setErrorMessage('Please enter a Token number, UHID, or registered Mobile number.');
-      return;
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (!pasted) return;
+    const nextPin = ['', '', '', ''];
+    for (let i = 0; i < pasted.length; i++) {
+      nextPin[i] = pasted[i];
     }
-
-    const res = loginAsPatientWithToken(lookupInput.trim());
-    if (!res.success) {
-      // Fallback to general loginAsPatient
-      const legacySuccess = loginAsPatient(lookupInput.trim());
-      if (!legacySuccess) {
-        setErrorMessage(res.error || `No patient record found for "${lookupInput}".`);
-      } else {
-        setErrorMessage(null);
-      }
-    } else {
-      setErrorMessage(null);
-    }
-  };
-
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setErrorMessage('Please enter the patient full name.');
-      return;
-    }
-    if (!age || Number(age) <= 0 || Number(age) > 120) {
-      setErrorMessage('Please enter a valid age between 1 and 120.');
-      return;
-    }
-    if (!contact.trim()) {
-      setErrorMessage('Please enter a mobile phone number.');
-      return;
-    }
-    if (!currentIllness.trim()) {
-      setErrorMessage('Please describe the current symptoms or illness.');
-      return;
-    }
-
-    setErrorMessage(null);
-    const registered = registerPatient({
-      name: name.trim(),
-      age: Number(age),
-      gender,
-      contact: contact.trim(),
-      currentIllness: currentIllness.trim(),
-      doctorId: selectedDoctorId,
-      priority,
-      autoLogin: false
-    });
-
-    setRegisteredPatientObj(registered);
-    setIsReceiptOpen(true);
-  };
-
-  // Quick 1-Click Launchers
-  const handleLaunchRahulDemo = () => {
-    loadDemoScenarioRahul();
-  };
-
-  const handleLaunchKiosk = () => {
-    setActiveRole('kiosk');
+    onChange(nextPin);
+    const focusIdx = Math.min(pasted.length, 3);
+    inputRefs[focusIdx].current?.focus();
   };
 
   return (
-    <div 
-      className="min-h-screen relative flex flex-col justify-between select-none bg-slate-50 text-slate-900"
-      style={{
-        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.90), rgba(241, 245, 249, 0.95)), url('/hospital_bg.jpg')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Top Header (Hospital Clean Bright) */}
-      <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md relative z-10 shrink-0 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white p-1.5 flex items-center justify-center border border-slate-200/90 shrink-0 shadow-xs">
-              <img 
-                src="/logo.png" 
-                alt="QCare Logo" 
-                className="w-full h-full object-contain" 
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-extrabold text-lg tracking-tight text-slate-900">
-                  QCare Hospital Platform
-                </span>
-                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                  Central Hub
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
-                Hospital Diagnostic Queue Management & Smart Patient Routing
-              </p>
-            </div>
-          </div>
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          {lang === 'hi' ? '4-अंकों का पिन' : '4-digit PIN'}
+        </label>
+        <button
+          type="button"
+          onClick={onToggleShow}
+          aria-label={showPin ? (lang === 'hi' ? 'पिन छुपाएं' : 'Hide PIN') : (lang === 'hi' ? 'पिन दिखाएं' : 'Show PIN')}
+          className="min-h-[32px] px-2 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer rounded-md focus:outline-none focus:ring-2 focus:ring-teal-600 transition-colors"
+        >
+          {showPin ? <EyeOff className="w-3.5 h-3.5 text-slate-500" /> : <Eye className="w-3.5 h-3.5 text-slate-500" />}
+          <span>{showPin ? (lang === 'hi' ? 'छुपाएं' : 'Hide') : (lang === 'hi' ? 'दिखाएं' : 'Show')}</span>
+        </button>
+      </div>
+      <div className="flex items-center gap-3">
+        {pin.map((digit, idx) => (
+          <input
+            key={idx}
+            ref={inputRefs[idx]}
+            type={showPin ? 'text' : 'password'}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={1}
+            value={digit}
+            disabled={disabled}
+            onChange={e => handleInputChange(idx, e.target.value)}
+            onKeyDown={e => handleKeyDown(idx, e)}
+            onPaste={handlePaste}
+            placeholder=""
+            className="w-11 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-bold rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 text-slate-900 bg-white shadow-xs outline-none disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
-          {/* Hospital Branch Selector & Controls */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-[140px] sm:w-[210px]">
-              <SearchableCombobox
-                options={hospitals.map(h => ({
-                  id: h.id,
-                  label: h.shortName || h.name,
-                  subtext: `${h.city || 'Campus'} • ${h.badge}`,
-                  category: h.state || 'Metro Branches',
-                  badge: h.badge,
-                  badgeColor: 'teal'
-                }))}
-                value={currentHospitalId}
-                onChange={newId => {
-                  setHospital(newId);
-                  const hosp = hospitals.find(h => h.id === newId);
-                  if (hosp?.code) setStaffHospCode(hosp.code);
-                  setErrorMessage(null);
-                }}
-                placeholder="Select Hospital Branch..."
-                searchPlaceholder="Search branch or city..."
-                size="sm"
-                triggerClassName="py-1 px-2.5 rounded-xl border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-obsidian-800"
-              />
-            </div>
+// ==========================================
+// Custom One-Line Bay Select
+// ==========================================
+interface BayOption {
+  id: string;
+  name: string;
+  room: string;
+  displayName: string;
+}
 
+interface BaySelectProps {
+  bays: BayOption[];
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+  lang: 'en' | 'hi';
+}
+
+const BaySelect: React.FC<BaySelectProps> = ({ bays, value, onChange, disabled = false, lang }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedBay = bays.find(b => b.id === value);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1.5">
+        {lang === 'hi' ? 'जांच काउंटर' : 'Diagnostic bay'}
+      </label>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen(prev => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`w-full h-11 px-3.5 bg-white rounded-xl border text-left flex items-center justify-between text-sm transition-all cursor-pointer focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 shadow-xs ${
+          isOpen ? 'border-teal-600 ring-2 ring-teal-500/20' : 'border-slate-300 hover:border-slate-400'
+        } ${disabled ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+      >
+        <span className={`truncate ${selectedBay ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
+          {selectedBay ? selectedBay.displayName : (lang === 'hi' ? 'काउंटर चुनें' : 'Select your bay')}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-fadeIn"
+        >
+          {bays.map(bay => (
             <button
-              onClick={() => setShowWhyModal(true)}
-              className="px-3 py-1.5 rounded-2xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+              key={bay.id}
+              type="button"
+              role="option"
+              aria-selected={bay.id === value}
+              onClick={() => {
+                onChange(bay.id);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3.5 py-2.5 text-left text-xs sm:text-sm flex items-center justify-between transition-colors cursor-pointer ${
+                bay.id === value
+                  ? 'bg-teal-50 text-teal-800 font-semibold'
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
             >
-              <Zap className="w-3.5 h-3.5 text-teal-600 fill-teal-600" />
-              <span className="hidden sm:inline">Why QCare?</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-800">{bay.displayName.split('·')[0].trim()}</span>
+                <span className="text-slate-400">·</span>
+                <span className="text-slate-500">{bay.room}</span>
+              </div>
+              {bay.id === value && <Check className="w-4 h-4 text-teal-700 shrink-0" />}
             </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ==========================================
+// MAIN AUTH SCREEN COMPONENT
+// ==========================================
+export const AuthScreen: React.FC<{ customImage?: string }> = ({ customImage }) => {
+  const {
+    departments,
+    activeLanguage: lang,
+    setLanguage,
+    loginDoctor,
+    loginLabTech,
+    loginPatientLookup
+  } = useHospitalStore();
+
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<'staff' | 'lab' | 'patient'>('staff');
+
+  // Staff Form State
+  const [staffMobile, setStaffMobile] = useState('');
+  const [staffPin, setStaffPin] = useState(['', '', '', '']);
+  const [staffShowPin, setStaffShowPin] = useState(false);
+  const [staffRemember, setStaffRemember] = useState(false);
+
+  // Lab Form State
+  const [labStaffId, setLabStaffId] = useState('');
+  const [labBayId, setLabBayId] = useState('');
+  const [labPin, setLabPin] = useState(['', '', '', '']);
+  const [labShowPin, setLabShowPin] = useState(false);
+
+  // Patient Form State
+  const [patientToken, setPatientToken] = useState('');
+  const [patientMobile, setPatientMobile] = useState('');
+
+  // Carousel & UI State
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Translation Menu State
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+
+  // Hospital Multi-Tenant Selection State
+  // Initially null (no hospital selected by default)
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
+  const [hospitalCodeInput, setHospitalCodeInput] = useState('');
+  const [isHospitalMenuOpen, setIsHospitalMenuOpen] = useState(false);
+  const [hospitalSearchQuery, setHospitalSearchQuery] = useState('');
+  const hospitalMenuRef = useRef<HTMLDivElement>(null);
+
+  // Outside click listener for hospital dropdown menu
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (hospitalMenuRef.current && !hospitalMenuRef.current.contains(e.target as Node)) {
+        setIsHospitalMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // URL query parameter detection (e.g. ?hospital=MAX-01 or ?code=MAX-01)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const codeParam = params.get('hospital') || params.get('code');
+      if (codeParam) {
+        const found = findHospitalByQuery(codeParam);
+        if (found) {
+          setSelectedHospital(found);
+          setHospitalCodeInput(found.code);
+        }
+      }
+    }
+  }, []);
+
+  const handleHospitalCodeChange = (val: string) => {
+    setHospitalCodeInput(val);
+    setError('');
+    if (!val.trim()) {
+      setSelectedHospital(null);
+      return;
+    }
+    const matched = findHospitalByQuery(val);
+    if (matched) {
+      setSelectedHospital(matched);
+    }
+  };
+
+  const handleSelectHospital = (hosp: Hospital) => {
+    setSelectedHospital(hosp);
+    setHospitalCodeInput(hosp.code);
+    setIsHospitalMenuOpen(false);
+    setHospitalSearchQuery('');
+    setError('');
+  };
+
+  const handleClearHospital = () => {
+    setSelectedHospital(null);
+    setHospitalCodeInput('');
+    setHospitalSearchQuery('');
+  };
+
+  const filteredHospitals = REGISTERED_HOSPITALS.filter(h => {
+    if (!hospitalSearchQuery.trim()) return true;
+    const q = hospitalSearchQuery.toLowerCase().trim();
+    return (
+      h.name.toLowerCase().includes(q) ||
+      h.shortName.toLowerCase().includes(q) ||
+      h.code.toLowerCase().includes(q) ||
+      h.city.toLowerCase().includes(q) ||
+      h.address.toLowerCase().includes(q)
+    );
+  });
+
+  // Qbie Assistant & Notification Prompt State
+  const [showQbieChat, setShowQbieChat] = useState(false);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(true);
+  const [qbieFrameIndex, setQbieFrameIndex] = useState(1);
+  const [qbieChatMessages, setQbieChatMessages] = useState<Array<{ sender: 'qbie' | 'user'; text: string; time: string }>>([
+    {
+      sender: 'qbie',
+      text: lang === 'hi'
+        ? 'नमस्ते! मैं Qbie हूँ, QCare अस्पताल गाइड। आप मुझसे ओपीडी समय, खाली पेट जांच (Fasting), लाइव टोकन या जांच काउंटर के बारे में कुछ भी पूछ सकते हैं!'
+        : 'Hello! I am Qbie, your QCare hospital and queue guide. Ask me anything about OPD timings, test rules (fasting/water), live QR pass, or how QCare manages patient flow!',
+      time: 'Just now'
+    }
+  ]);
+  const [qbieInputValue, setQbieInputValue] = useState('');
+  const [qbieIsTyping, setQbieIsTyping] = useState(false);
+  const qbieMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Moveable / Draggable Qbie Mascot State
+  // When null, CSS fixed positioning (bottom-3 right-3 sm:bottom-6 sm:right-6) keeps it locked to the bottom right on any device
+  const [qbieCustomPosition, setQbieCustomPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingQbie, setIsDraggingQbie] = useState(false);
+  const mascotRef = useRef<HTMLDivElement>(null);
+  const qbieDragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    moved: boolean;
+  }>({
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+    moved: false
+  });
+
+  // Dynamic mascot dimensions based on viewport
+  const getMascotDimensions = () => {
+    if (typeof window === 'undefined') return { width: 80, height: 80 };
+    const isMobile = window.innerWidth < 640;
+    return isMobile ? { width: 44, height: 44 } : { width: 80, height: 80 };
+  };
+
+  // Clamping on resize only if custom position was set
+  useEffect(() => {
+    const handleResize = () => {
+      setQbieCustomPosition(prev => {
+        if (!prev) return null;
+        const isMobile = window.innerWidth < 640;
+        const w = isMobile ? 44 : 80;
+        const h = isMobile ? 44 : 80;
+        const margin = isMobile ? 12 : 24;
+        return {
+          x: Math.max(margin, Math.min(window.innerWidth - w - margin, prev.x)),
+          y: Math.max(56, Math.min(window.innerHeight - h - margin, prev.y))
+        };
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Global mousemove and mouseup listeners for desktop drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingQbie) return;
+      const dx = e.clientX - qbieDragStartRef.current.startX;
+      const dy = e.clientY - qbieDragStartRef.current.startY;
+
+      if (Math.hypot(dx, dy) > 5) {
+        qbieDragStartRef.current.moved = true;
+      }
+
+      const { width, height } = getMascotDimensions();
+      const minX = 8;
+      const maxX = window.innerWidth - width - 8;
+      const minY = 56; // below the top header
+      const maxY = window.innerHeight - height - 8;
+
+      setQbieCustomPosition({
+        x: Math.max(minX, Math.min(maxX, qbieDragStartRef.current.initialX + dx)),
+        y: Math.max(minY, Math.min(maxY, qbieDragStartRef.current.initialY + dy))
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingQbie) {
+        setIsDraggingQbie(false);
+      }
+    };
+
+    if (isDraggingQbie) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingQbie]);
+
+  // Touch drag event listeners for mobile devices
+  const handleTouchStartQbie = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const rect = mascotRef.current?.getBoundingClientRect();
+    const currentX = qbieCustomPosition ? qbieCustomPosition.x : (rect ? rect.left : window.innerWidth - 56);
+    const currentY = qbieCustomPosition ? qbieCustomPosition.y : (rect ? rect.top : window.innerHeight - 56);
+
+    qbieDragStartRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initialX: currentX,
+      initialY: currentY,
+      moved: false
+    };
+    setIsDraggingQbie(true);
+  };
+
+  const handleTouchMoveQbie = (e: React.TouchEvent) => {
+    if (!isDraggingQbie || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - qbieDragStartRef.current.startX;
+    const dy = touch.clientY - qbieDragStartRef.current.startY;
+
+    if (Math.hypot(dx, dy) > 5) {
+      qbieDragStartRef.current.moved = true;
+    }
+
+    const { width, height } = getMascotDimensions();
+    const minX = 8;
+    const maxX = window.innerWidth - width - 8;
+    const minY = 56;
+    const maxY = window.innerHeight - height - 8;
+
+    setQbieCustomPosition({
+      x: Math.max(minX, Math.min(maxX, qbieDragStartRef.current.initialX + dx)),
+      y: Math.max(minY, Math.min(maxY, qbieDragStartRef.current.initialY + dy))
+    });
+  };
+
+  const handleTouchEndQbie = () => {
+    if (isDraggingQbie) {
+      setIsDraggingQbie(false);
+      if (!qbieDragStartRef.current.moved) {
+        setShowQbieChat(true);
+      }
+    }
+  };
+
+  const handleMouseDownQbie = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const rect = mascotRef.current?.getBoundingClientRect();
+    const currentX = qbieCustomPosition ? qbieCustomPosition.x : (rect ? rect.left : window.innerWidth - 88);
+    const currentY = qbieCustomPosition ? qbieCustomPosition.y : (rect ? rect.top : window.innerHeight - 88);
+
+    qbieDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: currentX,
+      initialY: currentY,
+      moved: false
+    };
+    setIsDraggingQbie(true);
+  };
+
+  const handleClickQbie = () => {
+    if (!qbieDragStartRef.current.moved) {
+      setShowQbieChat(true);
+    }
+  };
+
+  // Preload all robot frames on mount to eliminate broken images or network hiccups
+  useEffect(() => {
+    for (let i = 1; i <= 6; i++) {
+      const img = new Image();
+      img.src = `/robot_frames/robot_${i}.png`;
+    }
+  }, []);
+
+  // Outside click for language dropdown
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setShowLangMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // Frame cycling for Qbie mascot animation (cycles 1..6 smoothly)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQbieFrameIndex(prev => (prev >= 6 ? 1 : prev + 1));
+    }, 1200);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-scroll Qbie chat to latest message
+  useEffect(() => {
+    if (showQbieChat) {
+      qbieMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [qbieChatMessages, qbieIsTyping, showQbieChat]);
+
+  // Handle Qbie message submit (uses Groq multi-key pool with automatic rotation & local clinical fallback)
+  const handleSendQbieMessage = async (customText?: string) => {
+    const textToSend = (customText || qbieInputValue).trim();
+    if (!textToSend || qbieIsTyping) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setQbieChatMessages(prev => [...prev, { sender: 'user', text: textToSend, time: timeStr }]);
+    if (!customText) {
+      setQbieInputValue('');
+    }
+    setQbieIsTyping(true);
+
+    try {
+      const response = await askQBiePublicAI(textToSend, lang);
+      setQbieChatMessages(prev => [
+        ...prev,
+        {
+          sender: 'qbie',
+          text: response,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } catch {
+      // Deterministic local clinical fallback if network exception occurs
+      const fallback = getPublicClinicalFallback(textToSend, lang);
+      setQbieChatMessages(prev => [
+        ...prev,
+        {
+          sender: 'qbie',
+          text: fallback,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setQbieIsTyping(false);
+    }
+  };
+
+  // Carousel auto-advance
+  useEffect(() => {
+    if (customImage || isPaused) return;
+    const timer = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % CAROUSEL_SLIDES.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isPaused, customImage]);
+
+  // Carousel controls
+  const handlePrevSlide = () => {
+    setActiveSlide(prev => (prev - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length);
+  };
+  const handleNextSlide = () => {
+    setActiveSlide(prev => (prev + 1) % CAROUSEL_SLIDES.length);
+  };
+
+  // Language switch
+  const handleLanguageChange = (newLang: 'en' | 'hi') => {
+    setLanguage(newLang);
+    setShowLangMenu(false);
+  };
+
+  // Demo auto-fill
+  const handleDemoFill = () => {
+    setError('');
+    // Auto-select Max Hospital Saket (MAX-01) if not selected
+    if (!selectedHospital) {
+      const demoHosp = REGISTERED_HOSPITALS[0]; // MAX-01
+      setSelectedHospital(demoHosp);
+      setHospitalCodeInput(demoHosp.code);
+    }
+    if (activeTab === 'staff') {
+      setStaffMobile('9810011001');
+      setStaffPin(['1', '2', '3', '4']);
+    } else if (activeTab === 'lab') {
+      setLabStaffId('TECH-01');
+      setLabBayId(departments[0]?.id || 'dept-pathology');
+      setLabPin(['1', '2', '3', '4']);
+    } else if (activeTab === 'patient') {
+      setPatientToken('QC-9411');
+      setPatientMobile('9876543210');
+    }
+  };
+
+  // Staff Submit
+  const handleStaffSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!selectedHospital) {
+      setError(
+        lang === 'hi'
+          ? 'कृपया आगे बढ़ने के लिए अपना अस्पताल चुनें या कोड (उदा. MAX-01) दर्ज करें।'
+          : 'Please select your hospital or enter a valid hospital code (e.g. MAX-01).'
+      );
+      return;
+    }
+
+    const cleaned = staffMobile.trim();
+    if (!cleaned) {
+      setError(lang === 'hi' ? 'कृपया पंजीकृत मोबाइल नंबर दर्ज करें।' : 'Please enter registered mobile number.');
+      return;
+    }
+    const joinedPin = staffPin.join('');
+    if (joinedPin.length < 4) {
+      setError(lang === 'hi' ? 'कृपया 4-अंकों का पिन दर्ज करें।' : 'Please enter 4-digit PIN.');
+      return;
+    }
+
+    setLoading(true);
+
+    setTimeout(() => {
+      const res = loginDoctor(
+        selectedHospital.doctorName || 'Dr. Attending Physician',
+        selectedHospital.name,
+        selectedHospital.doctorRoom || 'Chamber 101',
+        staffMobile,
+        undefined,
+        joinedPin,
+        selectedHospital.id
+      );
+      setLoading(false);
+      if (!res.success) {
+        setError(res.error || 'Authentication failed.');
+      }
+    }, 200);
+  };
+
+  // Lab Submit
+  const handleLabSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!selectedHospital) {
+      setError(
+        lang === 'hi'
+          ? 'कृपया आगे बढ़ने के लिए अपना अस्पताल चुनें या कोड (उदा. MAX-01) दर्ज करें।'
+          : 'Please select your hospital or enter a valid hospital code (e.g. MAX-01).'
+      );
+      return;
+    }
+
+    const joinedPin = labPin.join('');
+    if (joinedPin.length < 4) {
+      setError(lang === 'hi' ? 'कृपया 4-अंकों का पिन दर्ज करें।' : 'Please enter any 4-digit PIN.');
+      return;
+    }
+
+    const targetBay = labBayId || departments[0]?.id || 'dept-pathology';
+    const targetStaff = labStaffId.trim() || 'TECH-01';
+
+    setLoading(true);
+
+    setTimeout(() => {
+      const res = loginLabTech(targetStaff, targetBay, joinedPin, selectedHospital.id);
+      setLoading(false);
+      if (!res.success) {
+        setError(res.error || 'Authentication failed.');
+      }
+    }, 200);
+  };
+
+  // Patient Submit
+  const handlePatientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const query = patientToken.trim() || patientMobile.trim() || 'QC-9411';
+
+    setLoading(true);
+    setTimeout(() => {
+      const res = loginPatientLookup(query);
+      setLoading(false);
+      if (!res.success) {
+        setError(res.error || 'Unable to load patient pass.');
+      }
+    }, 200);
+  };
+
+  // Diagnostic Bay Options
+  const bayOptions: BayOption[] = departments.map(d => ({
+    id: d.id,
+    name: d.name,
+    room: d.location.room,
+    displayName: `${d.name.split('(')[0].trim()} · ${d.location.room}`
+  }));
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white via-[#EBF5F3] via-35% to-[#B2DCD3] text-slate-900 font-sans selection:bg-teal-700 selection:text-white relative">
+      
+      {/* ==========================================
+          1. STATIC TOP HEADER (Blends seamlessly with page)
+      ========================================== */}
+      <header className="flex-none h-14 sm:h-16 bg-white/70 backdrop-blur-md border-b border-slate-200/40 px-4 sm:px-8 flex items-center justify-between z-30 transition-all">
+        {/* Top Left: User's Official Glossy Qcare Brand Mark */}
+        <div className="flex items-center">
+          <img
+            src="/logo-glossy.png"
+            alt="Qcare"
+            className="h-8 sm:h-9 w-auto object-contain select-none"
+          />
+        </div>
+
+        {/* Top Right: Translation Dropdown & Help Modal Trigger */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          
+          {/* Translation Dropdown Trigger */}
+          <div className="relative" ref={langMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowLangMenu(prev => !prev)}
+              aria-label="Change language"
+              className="min-h-[36px] px-3 py-1.5 flex items-center gap-2 rounded-xl bg-slate-100/90 hover:bg-slate-200/80 border border-slate-200/80 text-xs font-medium text-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-600/30 shadow-2xs"
+            >
+              <Globe className="w-4 h-4 text-slate-500" />
+              <span className="font-semibold text-slate-800">{lang === 'hi' ? 'हिंदी' : 'English'}</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showLangMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showLangMenu && (
+              <div className="absolute right-0 mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 animate-fadeIn">
+                <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  {lang === 'hi' ? 'भाषा चुनें' : 'Select Language'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('en')}
+                  className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer ${
+                    lang === 'en' ? 'text-teal-800 font-bold bg-teal-50/60' : 'text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>English</span>
+                    <span className="text-[10px] text-slate-400">(Default)</span>
+                  </span>
+                  {lang === 'en' && <Check className="w-3.5 h-3.5 text-teal-700" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('hi')}
+                  className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer ${
+                    lang === 'hi' ? 'text-teal-800 font-bold bg-teal-50/60' : 'text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>हिंदी</span>
+                    <span className="text-[10px] text-slate-400">(Hindi)</span>
+                  </span>
+                  {lang === 'hi' && <Check className="w-3.5 h-3.5 text-teal-700" />}
+                </button>
+              </div>
+            )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            className="text-xs font-medium text-slate-500 hover:text-teal-700 cursor-pointer transition-colors hidden sm:block"
+          >
+            {lang === 'hi' ? 'सहायता' : 'Help'}
+          </button>
         </div>
       </header>
 
-      {/* Main Reception Gate Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-8 flex flex-col justify-center relative z-10">
-        
-        {/* Prominent Center Brand Hero ("min me bada sa Q-Care") */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white p-2.5 shadow-clinical border border-slate-200/90 mb-3 mx-auto transition-transform hover:scale-105 duration-300">
-            <img 
-              src="/logo.png" 
-              alt="QCare Logo" 
-              className="w-full h-full object-contain" 
-            />
-          </div>
-          <div className="flex items-center justify-center gap-2.5">
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-obsidian-900">
-              Q-CARE
-            </h1>
-            <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-full uppercase tracking-wider shadow-2xs">
-              Hospital OS
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-lg mx-auto mt-2">
-            Hospital Diagnostic Queue Management & Smart Patient Routing System
-          </p>
+      {/* ==========================================
+          CONTINUOUS CLINICAL BULLETIN (Anti-Vibe Coded: Zero Pills, Zero Emojis, Pure Editorial Typography)
+      ========================================== */}
+      <div className="flex-none h-7 sm:h-8 bg-white/60 backdrop-blur-xs border-b border-slate-200/50 px-4 sm:px-6 flex items-center overflow-hidden z-20 group select-none text-slate-600">
+        <div className="flex items-center shrink-0 pr-3.5 border-r border-slate-200/80 text-[10px] font-bold tracking-widest text-slate-400 uppercase font-sans">
+          <span>{lang === 'hi' ? 'सूचना' : 'Notice'}</span>
         </div>
+        
+        <div className="flex-1 overflow-hidden relative h-full flex items-center pl-3.5">
+          <div className="flex items-center gap-8 whitespace-nowrap animate-marquee group-hover:[animation-play-state:paused] cursor-default">
+            {QCARE_TICKER_UPDATES.map((item, idx) => (
+              <span key={`ticker-1-${idx}`} className="inline-flex items-center gap-2.5 text-slate-600 text-xs font-normal">
+                <span className="font-semibold text-slate-800">{item.title[lang]}:</span>
+                <span className="text-slate-600">{item.desc[lang]}</span>
+                <span className="text-slate-300 font-light select-none ml-2">—</span>
+              </span>
+            ))}
+            {/* Duplicate for seamless infinite loop */}
+            {QCARE_TICKER_UPDATES.map((item, idx) => (
+              <span key={`ticker-2-${idx}`} className="inline-flex items-center gap-2.5 text-slate-600 text-xs font-normal">
+                <span className="font-semibold text-slate-800">{item.title[lang]}:</span>
+                <span className="text-slate-600">{item.desc[lang]}</span>
+                <span className="text-slate-300 font-light select-none ml-2">—</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
 
-        {/* Unified 3-Field Hero Discovery Bar */}
-        <HeroDiscoveryBar className="mb-6" />
-
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200 shadow-clinical overflow-hidden">
+      {/* ==========================================
+          2. MAIN STAGE (RESPONSIVE: DESKTOP 2-COL, MOBILE 1-COL)
+      ========================================== */}
+      <main className="flex-1 overflow-y-auto flex items-center justify-center px-4 sm:px-6 lg:px-8 py-2 sm:py-4">
+        <div className="w-full max-w-[1100px] my-auto grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-7 items-center">
           
-          {/* Active Hospital Context Banner */}
-          <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-500">Active Hospital:</span>
-              <strong className="text-slate-900">{currentHospital.name}</strong>
-            </div>
-            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-              Code: {currentHospital.code || currentHospital.id}
-            </span>
-          </div>
-
-          {/* 3 Portal Selection Tabs (Staff, Patient QR, Lab Tech) */}
-          <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-100/70 p-2 gap-2">
-            <button
-              onClick={() => {
-                setActivePortalTab('staff');
-                setErrorMessage(null);
-              }}
-              className={`py-3 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
-                activePortalTab === 'staff'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-              }`}
+          {/* ==========================================
+              LEFT PANEL: QCARE CLINICAL WORKFLOW CAROUSEL
+          ========================================== */}
+          <div className="flex lg:flex lg:col-span-7 h-full flex-col justify-center order-2 lg:order-1">
+            <div
+              className="w-full h-[280px] sm:h-[340px] lg:h-[460px] lg:max-h-[480px] rounded-2xl border border-slate-200/90 bg-slate-900 shadow-md overflow-hidden relative group"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
             >
-              <Lock className="w-4 h-4 shrink-0" />
-              <span>Staff Workstation</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActivePortalTab('patient');
-                setErrorMessage(null);
-              }}
-              className={`py-3 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
-                activePortalTab === 'patient'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-              }`}
-            >
-              <User className="w-4 h-4 shrink-0" />
-              <span>Patient QR Portal</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActivePortalTab('lab');
-                setErrorMessage(null);
-              }}
-              className={`py-3 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
-                activePortalTab === 'lab'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-              }`}
-            >
-              <FlaskConical className="w-4 h-4 shrink-0" />
-              <span>Diagnostic Lab Portal</span>
-            </button>
-          </div>
-
-          <div className="p-6">
-            {errorMessage && (
-              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* ================= TAB 1: STAFF LOGIN ================= */}
-            {activePortalTab === 'staff' && (
-              <form onSubmit={handleStaffLogin} className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Hospital Staff Authentication</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Sign in to access your role-based workstation (Super Admin, Hospital Admin, Assistant, or Lab).
-                  </p>
+              {/* QCare Platform Stamp */}
+              <div className="absolute top-4 left-5 z-20 flex items-center gap-2.5 pointer-events-none">
+                <div className="w-8 h-8 rounded-xl bg-slate-900/80 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-xs p-1">
+                  <img src="/logo-gradient.png" alt="Qcare" className="w-full h-full object-contain" />
                 </div>
-
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Hospital Code
-                    </label>
-                    <input
-                      type="text"
-                      value={staffHospCode}
-                      onChange={e => setStaffHospCode(e.target.value)}
-                      placeholder="e.g. QCARE-HOSP-001"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Staff ID or Email
-                    </label>
-                    <input
-                      type="text"
-                      value={staffIdentifier}
-                      onChange={e => setStaffIdentifier(e.target.value)}
-                      placeholder="e.g. STAFF-ASST-01 or assistant@qcare.demo"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={staffPassword}
-                      onChange={e => setStaffPassword(e.target.value)}
-                      placeholder="e.g. staff123 or admin123"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Fast Fill Pills */}
-                <div className="pt-2">
-                  <span className="text-[11px] font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">
-                    Quick Credentials Autofill:
+                <div className="flex flex-col">
+                  <span className="text-white font-bold text-xs tracking-tight leading-none font-sans">
+                    QCare
                   </span>
-                  <div className="flex flex-wrap gap-1.5 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStaffHospCode('QCARE-HOSP-001');
-                        setStaffIdentifier('STAFF-ASST-01');
-                        setStaffPassword('staff123');
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                    >
-                      Doctor Assistant
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStaffHospCode('QCARE-HOSP-001');
-                        setStaffIdentifier('STAFF-USG-01');
-                        setStaffPassword('staff123');
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                    >
-                      USG Lab Staff
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStaffHospCode('QCARE-HOSP-001');
-                        setStaffIdentifier('STAFF-ADMIN-01');
-                        setStaffPassword('admin123');
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                    >
-                      Hospital Admin
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStaffHospCode('QCARE-HOSP-001');
-                        setStaffIdentifier('STAFF-SUPER-01');
-                        setStaffPassword('admin123');
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                    >
-                      Super Admin
-                    </button>
-                  </div>
+                  <span className="text-slate-300 text-[10px] leading-tight mt-0.5 font-sans">
+                    Diagnostic Flow
+                  </span>
                 </div>
+              </div>
 
-                <div className="pt-3">
-                  <button
-                    type="submit"
-                    className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span>Authenticate into Workstation</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* ================= TAB 2: PATIENT QR PORTAL (NO LOGIN WALL - 1-CLICK ROSTER) ================= */}
-            {activePortalTab === 'patient' && (
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                      Patient QR Portal
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      No password required! Click any registered patient below to immediately open their live diagnostic journey.
-                    </p>
-                  </div>
-
-                  <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setPatientMode('lookup')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        patientMode === 'lookup'
-                          ? 'bg-white text-blue-600 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Live Patient Roster
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPatientMode('register')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        patientMode === 'register'
-                          ? 'bg-white text-blue-600 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      + Walk-in OPD Register
-                    </button>
-                  </div>
-                </div>
-
-                {patientMode === 'lookup' ? (
-                  <div className="space-y-4 pt-1">
-                    {/* Instant Search Bar */}
-                    <form onSubmit={handleLookupSubmit} className="relative">
-                      <QrCode className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
-                      <input
-                        type="text"
-                        value={lookupInput}
-                        onChange={e => setLookupInput(e.target.value)}
-                        placeholder="Search by Patient Name, Token (#OPD-101), UHID, or Mobile (Press Enter)..."
-                        className="w-full pl-11 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                      />
-                    </form>
-
-                    {/* Interactive Roster of Registered Patients */}
-                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                      {patients
-                        .filter(p => {
-                          if (!lookupInput.trim()) return true;
-                          const q = lookupInput.trim().toLowerCase();
-                          return (
-                            p.name.toLowerCase().includes(q) ||
-                            p.uhid.toLowerCase().includes(q) ||
-                            (p.opdTokenNumber && p.opdTokenNumber.toLowerCase().includes(q)) ||
-                            p.contact.includes(q)
-                          );
-                        })
-                        .map(p => {
-                          const isRahul = p.id === 'pat-rahul-sharma';
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => loginAsPatient(p.uhid)}
-                              className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between group shadow-2xs ${
-                                isRahul
-                                  ? 'bg-blue-50/70 border-blue-300 hover:border-blue-500 hover:bg-blue-50'
-                                  : 'bg-white hover:bg-slate-50 border-slate-200'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
-                                  isRahul ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
-                                }`}>
-                                  {p.name.charAt(0)}
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-bold text-slate-900 text-sm group-hover:text-blue-700">
-                                      {p.name}
-                                    </span>
-                                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-100/70 text-blue-800 font-bold">
-                                      {p.opdTokenNumber || p.uhid}
-                                    </span>
-                                    {p.doctorPriority && p.doctorPriority !== 'normal' && (
-                                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                                        p.doctorPriority === 'urgent' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
-                                      }`}>
-                                        {p.doctorPriority}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                                    <span>{p.age} Y / {p.gender}</span>
-                                    <span>•</span>
-                                    <span>Dr. {p.prescribedDoctorName}</span>
-                                    <span>•</span>
-                                    <span className="text-blue-600 font-semibold">
-                                      {p.prescribedTests.length} investigations ({p.completedTests.length} done)
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="hidden sm:inline-block text-xs font-bold text-blue-600 group-hover:underline">
-                                  Open Journey
-                                </span>
-                                <ArrowRight className="w-4 h-4 text-blue-600 group-hover:translate-x-1 transition-transform" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
+              {/* Carousel Images Stack */}
+              <div className="relative w-full h-full overflow-hidden">
+                {customImage ? (
+                  <img
+                    src={customImage}
+                    alt="Hospital Operations"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  /* Walk-In OPD Registration Form */
-                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="e.g. Ramesh Kumar"
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Age</label>
-                        <input
-                          type="number"
-                          value={age}
-                          onChange={e => setAge(e.target.value === '' ? '' : Number(e.target.value))}
-                          placeholder="e.g. 52"
-                          className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
-                        <SearchableCombobox
-                          options={[
-                            { id: 'Male', label: 'Male' },
-                            { id: 'Female', label: 'Female' },
-                            { id: 'Other', label: 'Other' },
-                          ]}
-                          value={gender}
-                          onChange={val => setGender(val as any)}
-                          placeholder="Select Gender"
-                          size="sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">Mobile Number</label>
-                        <SecurityPopover label="256-Bit Encrypted" />
-                      </div>
-                      <input
-                        type="tel"
-                        value={contact}
-                        onChange={e => setContact(e.target.value)}
-                        placeholder="e.g. 9811223344"
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 focus:outline-none transition-all tabular-nums"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">
-                          Consulting Doctor
-                        </label>
-                        <MedicalTooltip 
-                          term="OPD Triage" 
-                          explanation="Assigns the patient directly to the doctor's active OPD queue for clinical review and diagnostic orders." 
-                          clinicalSource="National Hospital Management Protocol"
-                        />
-                      </div>
-                      <SearchableCombobox
-                        options={doctors.map(d => ({
-                          id: d.id,
-                          label: d.name,
-                          subtext: `${d.roomNo} • ${d.specialization}`,
-                          category: d.department,
-                          badge: `${d.activePatientCount} queued`,
-                          badgeColor: 'teal'
-                        }))}
-                        value={selectedDoctorId}
-                        onChange={setSelectedDoctorId}
-                        placeholder="Select Consulting Doctor..."
-                        searchPlaceholder="Search doctor or room..."
-                        size="md"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">Triage Priority</label>
-                        <MedicalTooltip 
-                          term="Clinical Triage Rule"
-                          explanation="Emergency patients bypass normal queues immediately. Age 60+ is automatically flagged for Senior Citizen priority."
-                          clinicalSource="AIIMS / Emergency Medicine Protocol"
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['standard', 'senior', 'emergency'] as PriorityLevel[]).map(p => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => {
-                              setPriority(p);
-                              setIsManualPriority(true);
-                            }}
-                            className={`py-1.5 px-2 rounded-xl text-xs font-bold capitalize border transition-all ${
-                              priority === p
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Chief Symptoms</label>
-                      <input
-                        type="text"
-                        value={currentIllness}
-                        onChange={e => setCurrentIllness(e.target.value)}
-                        placeholder="e.g. Chest discomfort, routine checkup"
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all"
+                  CAROUSEL_SLIDES.map((slide, idx) => (
+                    <div
+                      key={idx}
+                      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                        idx === activeSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                      }`}
                     >
-                      Register & Print Thermal Slip
+                      <img
+                        src={slide.image}
+                        alt={slide.title[lang]}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))
+                )}
+
+                {/* Prev & Next Controls */}
+                {!customImage && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevSlide}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                      aria-label="Previous visual"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
-                  </form>
+                    <button
+                      type="button"
+                      onClick={handleNextSlide}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+                      aria-label="Next visual"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                {/* Clean Bottom Information Dock */}
+                {!customImage && (
+                  <div className="absolute bottom-0 left-0 right-0 p-6 z-20 flex flex-col justify-end bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-semibold text-teal-300 tracking-wider uppercase font-sans">
+                        {CAROUSEL_SLIDES[activeSlide].step[lang]}
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug font-sans">
+                        {CAROUSEL_SLIDES[activeSlide].title[lang]}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-200 mt-1 max-w-lg leading-relaxed font-sans">
+                        {CAROUSEL_SLIDES[activeSlide].desc[lang]}
+                      </p>
+                    </div>
+
+                    {/* Progress Bar / Dots */}
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/15">
+                      {CAROUSEL_SLIDES.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveSlide(idx)}
+                          className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                            idx === activeSlide ? 'w-8 bg-teal-400' : 'w-2 bg-white/35 hover:bg-white/60'
+                          }`}
+                          aria-label={`Slide ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* ================= TAB 3: DIAGNOSTIC LAB PORTAL ================= */}
-            {activePortalTab === 'lab' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Diagnostic Laboratory Workstations</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Click any active diagnostic counter to manage queues, call patients, and verify completions live.
-                  </p>
+          {/* ==========================================
+              RIGHT PANEL: CLEAN SIGN-IN CARD
+          ========================================== */}
+          <div className="w-full lg:col-span-5 h-full flex flex-col justify-center order-1 lg:order-2">
+            <div className="w-full max-w-[420px] mx-auto bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-200/40 p-5 sm:p-6 flex flex-col">
+              
+              {/* Tabs: Underline style */}
+              <div className="flex border-b border-slate-200 mb-3.5" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'staff'}
+                  onClick={() => {
+                    setActiveTab('staff');
+                    setError('');
+                  }}
+                  className={`flex-1 pb-2.5 text-xs sm:text-sm font-semibold tracking-tight transition-all relative cursor-pointer ${
+                    activeTab === 'staff'
+                      ? 'text-teal-800'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {lang === 'hi' ? 'डॉक्टर / स्टाफ' : 'Doctor & Staff'}
+                  {activeTab === 'staff' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-700 rounded-full" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'lab'}
+                  onClick={() => {
+                    setActiveTab('lab');
+                    setError('');
+                  }}
+                  className={`flex-1 pb-2.5 text-xs sm:text-sm font-semibold tracking-tight transition-all relative cursor-pointer ${
+                    activeTab === 'lab'
+                      ? 'text-teal-800'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {lang === 'hi' ? 'लैब टेक्नीशियन' : 'Lab Tech'}
+                  {activeTab === 'lab' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-700 rounded-full" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'patient'}
+                  onClick={() => {
+                    setActiveTab('patient');
+                    setError('');
+                  }}
+                  className={`flex-1 pb-2.5 text-xs sm:text-sm font-semibold tracking-tight transition-all relative cursor-pointer ${
+                    activeTab === 'patient'
+                      ? 'text-teal-800'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {lang === 'hi' ? 'मरीज' : 'Patient'}
+                  {activeTab === 'patient' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-700 rounded-full" />
+                  )}
+                </button>
+              </div>
+
+              {/* Title Header */}
+              <div className="mb-3">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                  {activeTab === 'staff' && (lang === 'hi' ? 'साइन इन करें' : 'Sign in')}
+                  {activeTab === 'lab' && (lang === 'hi' ? 'लैब स्टेशन खोलें' : 'Open lab station')}
+                  {activeTab === 'patient' && (lang === 'hi' ? 'अपनी जांच ट्रैक करें' : 'Track your tests')}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {activeTab === 'staff' && (lang === 'hi' ? 'ड्यूटी डॉक्टर एवं ओपीडी सहायक' : 'Duty doctor & clinical assistant')}
+                  {activeTab === 'lab' && (lang === 'hi' ? 'डायग्नोस्टिक काउंटर कंसोल' : 'Diagnostic counter technician console')}
+                  {activeTab === 'patient' && (lang === 'hi' ? 'लाइव डिजिटल बोर्डिंग पास' : 'Real-time diagnostic boarding pass')}
+                </p>
+              </div>
+
+              {/* Inline Error */}
+              {error && (
+                <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs font-medium text-red-700">
+                  {error}
                 </div>
+              )}
 
-                <div className="space-y-2.5 pt-1">
-                  {counters.map(c => {
-                    const dept = departments.find(d => d.id === c.departmentId);
-                    const waitingCount = queueTokens.filter(t => t.departmentId === c.departmentId && t.status === 'waiting').length;
-                    const servingToken = queueTokens.find(t => t.id === c.currentServingTokenId);
+              {/* ==========================================
+                  HOSPITAL / CENTER SELECTION (Hybrid: Dropdown + Auto-Detect Code)
+              ========================================== */}
+              {(activeTab === 'staff' || activeTab === 'lab') && (
+                <div className="mb-3 relative" ref={hospitalMenuRef}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-teal-700" />
+                      <span>{lang === 'hi' ? 'अस्पताल / केंद्र' : 'Hospital / Center'}</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {lang === 'hi' ? 'चुनें या कोड लिखें' : 'Select or type code'}
+                    </span>
+                  </div>
 
-                    return (
+                  <div className="flex items-center gap-2">
+                    {/* Main Premium Custom Dropdown Trigger */}
+                    <div className="flex-1 min-w-0">
                       <button
-                        key={c.id}
                         type="button"
-                        onClick={() => loginAsLabTech(c.id)}
-                        className="w-full p-4 rounded-2xl bg-white hover:bg-purple-50/60 border border-slate-200 hover:border-purple-300 text-left transition-all flex items-center justify-between group shadow-2xs"
+                        onClick={() => setIsHospitalMenuOpen(prev => !prev)}
+                        aria-expanded={isHospitalMenuOpen}
+                        aria-label="Select hospital"
+                        className={`w-full h-11 px-3 bg-white border rounded-xl flex items-center justify-between transition-all cursor-pointer shadow-xs text-left ${
+                          !selectedHospital && error
+                            ? 'border-amber-400 bg-amber-50/20 ring-2 ring-amber-400/20'
+                            : selectedHospital
+                              ? 'border-teal-600/70 bg-teal-50/15 ring-1 ring-teal-600/20'
+                              : 'border-slate-300 hover:border-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20'
+                        }`}
                       >
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-sm shrink-0">
-                            <FlaskConical className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-slate-900 text-sm group-hover:text-purple-900">
-                                {c.name}
-                              </h3>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold">
-                                {c.code}
+                        <div className="flex items-center gap-2 min-w-0 pr-1">
+                          {selectedHospital ? (
+                            <>
+                              <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-teal-700 text-white text-[10px] font-mono font-bold">
+                                {selectedHospital.code}
                               </span>
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              {dept?.name} • Technician: <strong className="text-slate-800">{c.technicianName}</strong> ({dept?.location.room})
-                            </div>
-                            <div className="text-[11px] text-purple-700 font-medium mt-1">
-                              Serving: {servingToken ? `Token #${servingToken.tokenNumber}` : 'Idle / Ready for next patient'}
-                            </div>
-                          </div>
+                              <div className="truncate">
+                                <span className="text-xs sm:text-[13px] font-semibold text-slate-900 block truncate">
+                                  {selectedHospital.name}
+                                </span>
+                                <span className="text-[10px] text-slate-500 block truncate">
+                                  {selectedHospital.city} • {selectedHospital.shortName}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-xs sm:text-[13px] text-slate-400 font-normal truncate">
+                              {lang === 'hi' ? 'अस्पताल / डायग्नोस्टिक सेंटर चुनें...' : 'Select Hospital / Center...'}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${
-                            waitingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                          }`}>
-                            {waitingCount} waiting in queue
-                          </span>
-                          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-700 group-hover:translate-x-1 transition-all" />
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {selectedHospital && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleClearHospital();
+                              }}
+                              title="Clear hospital selection"
+                              className="w-5 h-5 rounded-full hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`w-4 h-4 text-slate-400 transition-transform ${
+                              isHospitalMenuOpen ? 'rotate-180 text-teal-700' : ''
+                            }`}
+                          />
                         </div>
                       </button>
-                    );
-                  })}
+                    </div>
+
+                    {/* Hybrid Quick Code Input (Auto-detects when typing 'MAX-01', 'max 01', etc.) */}
+                    <div className="w-28 sm:w-32 shrink-0">
+                      <input
+                        type="text"
+                        value={hospitalCodeInput}
+                        onChange={e => handleHospitalCodeChange(e.target.value)}
+                        placeholder="MAX-01"
+                        title={lang === 'hi' ? 'अस्पताल कोड लिखें (उदा. MAX-01)' : 'Type hospital code (e.g. MAX-01)'}
+                        className={`w-full h-11 px-2.5 text-center text-xs font-mono font-bold uppercase rounded-xl border bg-white shadow-xs outline-none transition-all ${
+                          selectedHospital
+                            ? 'border-teal-600 bg-teal-50/20 text-teal-900 font-bold focus:ring-2 focus:ring-teal-500/20'
+                            : 'border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Floating Dropdown Menu Panel (Anti-Vibe Coded, Compact & Contained) */}
+                  {isHospitalMenuOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200/90 z-50 animate-fadeIn max-h-[220px] flex flex-col overflow-hidden ring-1 ring-black/5">
+                      
+                      {/* Quick Search & Code Filter inside Menu */}
+                      <div className="p-2 border-b border-slate-100 bg-white shrink-0">
+                        <div className="flex items-center gap-2 px-2.5 h-8 bg-slate-50 border border-slate-200 rounded-lg focus-within:border-teal-600 focus-within:bg-white transition-all">
+                          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={hospitalSearchQuery}
+                            onChange={e => setHospitalSearchQuery(e.target.value)}
+                            placeholder={lang === 'hi' ? 'अस्पताल या कोड खोजें (उदा. MAX-01)...' : 'Search hospital or code (e.g. MAX-01)...'}
+                            className="w-full text-xs bg-transparent outline-none text-slate-900 placeholder:text-slate-400"
+                          />
+                          {hospitalSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setHospitalSearchQuery('')}
+                              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 6 Hospital Options List */}
+                      <div className="overflow-y-auto p-1.5 space-y-0.5 flex-1 divide-y divide-slate-50">
+                        {filteredHospitals.length === 0 ? (
+                          <div className="py-5 text-center text-xs text-slate-400 font-medium">
+                            {lang === 'hi' ? 'कोई अस्पताल नहीं मिला' : 'No matching hospital found'}
+                          </div>
+                        ) : (
+                          filteredHospitals.map(hosp => {
+                            const isSelected = selectedHospital?.id === hosp.id;
+                            return (
+                              <button
+                                key={hosp.id}
+                                type="button"
+                                onClick={() => handleSelectHospital(hosp)}
+                                className={`w-full text-left px-2.5 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
+                                  isSelected
+                                    ? 'bg-teal-50 border border-teal-200/90 text-teal-950 font-semibold shadow-2xs'
+                                    : 'hover:bg-slate-50 border border-transparent text-slate-800'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-semibold text-slate-900 truncate block">
+                                      {hosp.name}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                    {hosp.locality ? `${hosp.locality}, ${hosp.city}` : hosp.address}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                                      isSelected
+                                        ? 'bg-teal-700 text-white'
+                                        : 'bg-slate-100 text-slate-700 border border-slate-200/80'
+                                    }`}
+                                  >
+                                    {hosp.code}
+                                  </span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-teal-700 shrink-0" />}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Form Content: Staff */}
+              {activeTab === 'staff' && (
+                <form onSubmit={handleStaffSubmit} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1">
+                      {lang === 'hi' ? 'पंजीकृत मोबाइल' : 'Registered mobile'}
+                    </label>
+                    <div className="flex rounded-xl border border-slate-300 focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-500/20 bg-white overflow-hidden shadow-xs">
+                      <span className="inline-flex items-center px-3.5 bg-slate-50 text-slate-600 font-semibold text-sm border-r border-slate-300">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={staffMobile}
+                        onChange={e => setStaffMobile(e.target.value.replace(/\D/g, ''))}
+                        placeholder="98100 11001"
+                        className="w-full h-10 px-3 text-sm text-slate-900 bg-white outline-none font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <PinInput
+                    pin={staffPin}
+                    onChange={setStaffPin}
+                    showPin={staffShowPin}
+                    onToggleShow={() => setStaffShowPin(prev => !prev)}
+                    disabled={loading}
+                    lang={lang}
+                  />
+
+                  <div className="flex items-center justify-between pt-0.5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={staffRemember}
+                        onChange={e => setStaffRemember(e.target.checked)}
+                        className="w-4 h-4 rounded text-teal-700 border-slate-300 focus:ring-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs text-slate-600 font-medium">
+                        {lang === 'hi' ? 'याद रखें' : 'Remember me'}
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleDemoFill}
+                      className="text-xs font-medium text-teal-700 hover:text-teal-900 cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>{lang === 'hi' ? 'डेमो भरें' : 'Demo fill'}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-10 mt-1 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-teal-900/10 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>{lang === 'hi' ? 'साइन इन करें' : 'Sign In'}</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Form Content: Lab */}
+              {activeTab === 'lab' && (
+                <form onSubmit={handleLabSubmit} className="space-y-3">
+                  <BaySelect
+                    bays={bayOptions}
+                    value={labBayId}
+                    onChange={setLabBayId}
+                    disabled={loading}
+                    lang={lang}
+                  />
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1.5">
+                      {lang === 'hi' ? 'स्टाफ आईडी' : 'Staff ID'}
+                    </label>
+                    <input
+                      type="text"
+                      value={labStaffId}
+                      onChange={e => setLabStaffId(e.target.value)}
+                      placeholder="TECH-01"
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 text-sm text-slate-900 bg-white outline-none shadow-xs font-medium"
+                    />
+                  </div>
+
+                  <PinInput
+                    pin={labPin}
+                    onChange={setLabPin}
+                    showPin={labShowPin}
+                    onToggleShow={() => setLabShowPin(prev => !prev)}
+                    disabled={loading}
+                    lang={lang}
+                    autoFocusFirst={false}
+                  />
+
+                  <div className="flex items-center justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={handleDemoFill}
+                      className="text-xs font-medium text-teal-700 hover:text-teal-900 cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>{lang === 'hi' ? 'डेमो भरें' : 'Demo fill'}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 mt-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-teal-900/10 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>{lang === 'hi' ? 'स्टेशन खोलें' : 'Open Workstation'}</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Form Content: Patient */}
+              {activeTab === 'patient' && (
+                <form onSubmit={handlePatientSubmit} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1">
+                      {lang === 'hi' ? 'पर्ची टोकन नंबर' : 'Receipt token number'}
+                    </label>
+                    <input
+                      type="text"
+                      value={patientToken}
+                      onChange={e => setPatientToken(e.target.value.toUpperCase())}
+                      placeholder="QC-9411"
+                      className="w-full h-10 px-3.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 text-sm text-slate-900 bg-white outline-none shadow-xs font-medium uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1">
+                      {lang === 'hi' ? 'या पंजीकृत मोबाइल' : 'Or registered mobile'}
+                    </label>
+                    <div className="flex rounded-xl border border-slate-300 focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-500/20 bg-white overflow-hidden shadow-xs">
+                      <span className="inline-flex items-center px-3.5 bg-slate-50 text-slate-600 font-semibold text-sm border-r border-slate-300">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={patientMobile}
+                        onChange={e => setPatientMobile(e.target.value.replace(/\D/g, ''))}
+                        placeholder="98765 43210"
+                        className="w-full h-10 px-3 text-sm text-slate-900 bg-white outline-none font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleDemoFill}
+                      className="text-xs font-medium text-teal-700 hover:text-teal-900 cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>{lang === 'hi' ? 'डेमो भरें' : 'Demo fill'}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-10 mt-1 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-teal-900/10 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>{lang === 'hi' ? 'लाइव पास देखें' : 'Access Live Pass'}</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Security Footnote */}
+              <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+                <Lock className="w-3.5 h-3.5 text-teal-700" />
+                <span>{lang === 'hi' ? 'सुरक्षित 256-बिट एन्क्रिप्टेड कतार सत्र' : 'Protected 256-bit encrypted clinical session'}</span>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </main>
 
-      {/* Trust & Regulatory Accreditation Strip */}
-      <AccreditationBar className="relative z-10 my-4" />
-
-      {/* 24/7 Emergency & Triage Hotline Floating Badge */}
-      <EmergencyHotlineBadge />
-
-      {/* Footer (Clean Hospital White) */}
-      <footer className="py-4 text-center text-xs text-slate-500 border-t border-slate-200 bg-white/70 backdrop-blur-xs relative z-10">
-        <p>QCare Hospital Diagnostic Queue Management & Smart Patient Routing System • Production Build</p>
+      {/* ==========================================
+          3. DEEPLY BLENDED BOTTOM BAR (Seamless with background gradient)
+      ========================================== */}
+      <footer className="flex-none h-11 px-6 sm:px-8 flex items-center justify-between text-xs text-teal-950/75 bg-transparent border-t-0 select-none">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">© 2026 QCare Clinical Systems</span>
+          <span className="text-teal-900/30">•</span>
+          <span className="text-teal-950/60 hidden sm:inline">Outpatient & Diagnostic Queue Management</span>
+        </div>
+        <div className="flex items-center gap-4 font-medium">
+          <button
+            type="button"
+            onClick={() => setShowHowItWorks(true)}
+            className="hover:text-teal-950 cursor-pointer transition-colors"
+          >
+            {lang === 'hi' ? 'यह कैसे काम करता है' : 'How it works'}
+          </button>
+          <span className="text-teal-900/30">·</span>
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            className="hover:text-teal-950 cursor-pointer transition-colors"
+          >
+            {lang === 'hi' ? 'सहायता' : 'Support'}
+          </button>
+        </div>
       </footer>
 
-      {/* Discreet Floating 1-Click Demo Dock (Tucked neatly away on the side - User Feedback) */}
-      <div className="fixed bottom-6 right-6 z-40 print:hidden">
-        <button
-          type="button"
-          onClick={() => setIsDemoDrawerOpen(true)}
-          className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs shadow-xl border border-slate-200 backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 group"
+      {/* ==========================================
+          4. QBIE ASSISTANT (Freestanding Moveable Mascot + Responsive Notification Balloon)
+      ========================================== */}
+      {!showQbieChat && (
+        <div
+          ref={mascotRef}
+          style={
+            qbieCustomPosition
+              ? {
+                  position: 'fixed',
+                  left: `${qbieCustomPosition.x}px`,
+                  top: `${qbieCustomPosition.y}px`,
+                  touchAction: 'none'
+                }
+              : {
+                  position: 'fixed',
+                  touchAction: 'none'
+                }
+          }
+          className={`${
+            qbieCustomPosition ? '' : 'bottom-3 right-3 sm:bottom-6 sm:right-6'
+          } z-40 flex items-center select-none`}
         >
-          <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
-          <span>Quick Demo Stations</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        </button>
-      </div>
+          {/* Floating Notification Balloon (Dismissible with 'X' Cut Button) */}
+          {showNotificationPrompt && (
+            <div
+              onClick={() => setShowQbieChat(true)}
+              className={`absolute cursor-pointer bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 p-2 sm:p-3 pr-6 sm:pr-8 hover:shadow-2xl hover:border-teal-300 transition-all group animate-fadeIn ${
+                typeof window !== 'undefined' && window.innerWidth < 640
+                  ? 'bottom-full mb-1.5 right-0 max-w-[190px]'
+                  : qbieCustomPosition && qbieCustomPosition.x <= (typeof window !== 'undefined' ? window.innerWidth / 2 : 400)
+                    ? 'left-full ml-3 bottom-0 w-[260px]'
+                    : 'right-full mr-3 bottom-0 w-[260px]'
+              }`}
+            >
+              {/* Cut / Dismiss Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNotificationPrompt(false);
+                }}
+                aria-label="Dismiss notification"
+                className="absolute top-1.5 right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              </button>
 
-      {/* Slide-out Demo Drawer Panel (Discreet & Clean) */}
-      {isDemoDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end animate-fadeIn">
-          <div className="w-full max-w-sm bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto animate-slideIn">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <h3 className="font-bold text-sm text-slate-900">1-Click Live Workstations</h3>
+              <div className="flex items-start gap-1.5 sm:gap-2.5">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 mt-1 shrink-0 animate-pulse" />
+                <div>
+                  <div className="text-[10px] sm:text-xs font-semibold text-slate-900 group-hover:text-teal-800 transition-colors">
+                    {lang === 'hi' ? 'सहायता चाहिए? Qbie से पूछें' : 'Need guidance? Ask Qbie'}
+                  </div>
+                  <p className="text-[9px] sm:text-[11px] text-slate-500 mt-0.5 leading-snug">
+                    {lang === 'hi' ? 'चैट के लिए टैप करें' : 'Tap to chat with AI guide'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => setIsDemoDrawerOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
 
-              <p className="text-xs text-slate-500">
-                Instant testing presets for Rahul Sharma demo scenario and clinical staff roles.
-              </p>
-
-              <div className="space-y-2 pt-2">
-                {/* Rahul Sharma Demo */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleLaunchRahulDemo();
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-sm hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 fill-slate-950" />
-                    <span>Rahul Sharma (USG First Demo)</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-
-                {/* Super Admin */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginAsStaff('QCARE-HOSP-001', 'super@qcare.demo', 'admin123');
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-between"
-                >
-                  <span>Super Admin Portal</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-
-                {/* Hospital Admin */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginAsStaff('QCARE-HOSP-001', 'admin@qcare.demo', 'admin123');
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-between"
-                >
-                  <span>Hospital Admin Console</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-
-                {/* Doctor Assistant */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginAsStaff('QCARE-HOSP-001', 'assistant@qcare.demo', 'staff123');
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs transition-colors flex items-center justify-between border border-blue-200"
-                >
-                  <span>Doctor Assistant Station</span>
-                  <ChevronRight className="w-4 h-4 text-blue-600" />
-                </button>
-
-                {/* USG Lab Staff */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginAsStaff('QCARE-HOSP-001', 'lab.usg@qcare.demo', 'staff123');
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs transition-colors flex items-center justify-between border border-purple-200"
-                >
-                  <span>Ultrasound Lab Station</span>
-                  <ChevronRight className="w-4 h-4 text-purple-600" />
-                </button>
-
-                {/* Blood Lab Staff */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginAsStaff('QCARE-HOSP-001', 'lab.blood@qcare.demo', 'staff123');
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-xs transition-colors flex items-center justify-between border border-rose-200"
-                >
-                  <span>Blood Lab Station</span>
-                  <ChevronRight className="w-4 h-4 text-rose-600" />
-                </button>
-
-                {/* Kiosk Mode */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleLaunchKiosk();
-                    setIsDemoDrawerOpen(false);
-                  }}
-                  className="w-full p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-between border border-emerald-200"
-                >
-                  <div className="flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-emerald-600" />
-                    <span>Touch Kiosk Interface</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-emerald-600" />
-                </button>
-              </div>
+              {/* Speech pointer towards Qbie */}
+              {typeof window !== 'undefined' && window.innerWidth < 640 ? (
+                <div className="absolute -bottom-1.5 right-3 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-white/95" />
+              ) : qbieCustomPosition && qbieCustomPosition.x <= (typeof window !== 'undefined' ? window.innerWidth / 2 : 400) ? (
+                <div className="absolute -left-2 bottom-4 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[8px] border-r-white/95" />
+              ) : (
+                <div className="absolute -right-2 bottom-4 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[8px] border-l-white/95" />
+              )}
             </div>
+          )}
 
-            <div className="pt-4 border-t border-slate-200 text-center">
-              <span className="text-[10px] text-slate-400">
-                QCare Centralized SaaS Architecture
-              </span>
+          {/* Freestanding Moveable Qbie Mascot (Touch & Mouse Drag + Tap to Open) */}
+          <div
+            role="button"
+            tabIndex={0}
+            onMouseDown={handleMouseDownQbie}
+            onTouchStart={handleTouchStartQbie}
+            onTouchMove={handleTouchMoveQbie}
+            onTouchEnd={handleTouchEndQbie}
+            onClick={handleClickQbie}
+            className={`w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 select-none touch-none ${
+              isDraggingQbie ? 'cursor-grabbing scale-105' : 'cursor-grab hover:scale-105 active:scale-95'
+            } transition-transform flex items-center justify-center relative drop-shadow-xl hover:drop-shadow-2xl group`}
+            aria-label="Qbie Assistant - Drag to move or click to chat"
+          >
+            <img
+              src={`/robot_frames/robot_${qbieFrameIndex}.png`}
+              alt="Qbie"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/robot_frames/robot_1.png';
+              }}
+              className="w-full h-full object-contain pointer-events-none select-none"
+            />
+            {/* Move indicator badge */}
+            <div
+              title={lang === 'hi' ? 'घसीट कर ले जाएँ' : 'Drag to move'}
+              className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white/95 border border-slate-200 shadow-xs flex items-center justify-center text-slate-400 group-hover:text-teal-700 transition-colors pointer-events-none"
+            >
+              <Move className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
             </div>
           </div>
         </div>
       )}
 
-      {/* Why Q-Care Comparison Modal */}
-      <WhyQCareModal
-        isOpen={showWhyModal}
-        onClose={() => setShowWhyModal(false)}
-      />
+      {/* ==========================================
+          QBIE INTERACTIVE CHAT WINDOW (Open State)
+      ========================================== */}
+      {showQbieChat && (
+        <div className="fixed inset-x-2 bottom-2 top-14 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:h-[530px] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-slideUp z-50">
+            
+            {/* Chat Header */}
+            <div className="px-4 py-3 bg-gradient-to-r from-teal-800 to-teal-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-white/15 p-1 flex items-center justify-center border border-white/20 shrink-0">
+                  <img
+                    src={`/robot_frames/robot_${qbieFrameIndex}.png`}
+                    alt="Qbie"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/robot_frames/robot_1.png';
+                    }}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-sm leading-tight font-['Comfortaa',sans-serif]">Qbie</h3>
+                    <span className="text-[10px] bg-emerald-400 text-slate-950 font-bold px-1.5 py-0.2 rounded-full">
+                      Guide
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-teal-200 mt-0.5">
+                    {lang === 'hi' ? 'अस्पताल एवं कतार मार्गदर्शक' : 'Hospital & Queue Assistant'}
+                  </p>
+                </div>
+              </div>
 
-      {/* Printable Receipt Modal if registered */}
-      {registeredPatientObj && (
-        <PrintableReceipt
-          patient={registeredPatientObj}
-          allTests={tests}
-          isOpen={isReceiptOpen}
-          onClose={() => setIsReceiptOpen(false)}
-        />
+              <button
+                type="button"
+                onClick={() => setShowQbieChat(false)}
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Close Qbie Chat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[11px] shrink-0 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => handleSendQbieMessage(lang === 'hi' ? 'खाली पेट जांच के क्या नियम हैं?' : 'What are the fasting rules for blood tests?')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-teal-600 hover:text-teal-800 whitespace-nowrap transition-colors cursor-pointer shrink-0 font-medium"
+              >
+                {lang === 'hi' ? 'खाली पेट जांच नियम' : 'Fasting rules'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendQbieMessage(lang === 'hi' ? 'पर्ची का क्यूआर कोड कैसे स्कैन करें?' : 'How to scan receipt QR code for live pass?')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-teal-600 hover:text-teal-800 whitespace-nowrap transition-colors cursor-pointer shrink-0 font-medium"
+              >
+                {lang === 'hi' ? 'टोकन कैसे ट्रैक करें?' : 'Track QR token'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendQbieMessage(lang === 'hi' ? 'अस्पताल ओपीडी का समय क्या है?' : 'What are OPD and diagnostic timings?')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-teal-600 hover:text-teal-800 whitespace-nowrap transition-colors cursor-pointer shrink-0 font-medium"
+              >
+                {lang === 'hi' ? 'ओपीडी का समय' : 'OPD timings'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendQbieMessage(lang === 'hi' ? 'इमरजेंसी हेल्पलाइन नंबर क्या है?' : 'What is the emergency helpline number?')}
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-teal-600 hover:text-teal-800 whitespace-nowrap transition-colors cursor-pointer shrink-0 font-medium"
+              >
+                {lang === 'hi' ? 'इमरजेंसी' : 'Emergency'}
+              </button>
+            </div>
+
+            {/* Chat Messages Body */}
+            <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-[#F8FAFC]">
+              {qbieChatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex gap-2.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.sender === 'qbie' && (
+                    <div className="w-7 h-7 rounded-lg bg-teal-100 border border-teal-200 p-0.5 shrink-0 self-end">
+                      <img
+                        src={`/robot_frames/robot_${qbieFrameIndex}.png`}
+                        alt="Qbie"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/robot_frames/robot_1.png';
+                        }}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] p-3 rounded-2xl text-xs sm:text-[13px] leading-relaxed whitespace-pre-wrap ${
+                      msg.sender === 'user'
+                        ? 'bg-teal-700 text-white rounded-br-xs font-medium shadow-xs'
+                        : 'bg-white text-slate-800 border border-slate-200/90 rounded-bl-xs font-normal shadow-xs'
+                    }`}
+                  >
+                    <p>{msg.text}</p>
+                    <span
+                      className={`text-[9px] block mt-1 font-medium ${
+                        msg.sender === 'user' ? 'text-teal-200' : 'text-slate-400'
+                      }`}
+                    >
+                      {msg.time}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {qbieIsTyping && (
+                <div className="flex items-center gap-1.5 text-slate-400 text-xs pl-8">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce [animation-delay:300ms]" />
+                  <span className="text-[11px] ml-1 text-slate-500 italic">Qbie is typing...</span>
+                </div>
+              )}
+              <div ref={qbieMessagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSendQbieMessage();
+              }}
+              className="p-2.5 bg-white border-t border-slate-200 flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={qbieInputValue}
+                onChange={e => setQbieInputValue(e.target.value)}
+                placeholder={lang === 'hi' ? 'सवाल पूछें (उदा. खाली पेट नियम)...' : 'Ask a question (e.g. fasting rules)...'}
+                className="flex-1 h-9 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 focus:bg-white text-slate-900"
+              />
+              <button
+                type="submit"
+                disabled={!qbieInputValue.trim() || qbieIsTyping}
+                className="w-9 h-9 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                aria-label="Send message"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+        )}
+
+      {/* ==========================================
+          MODALS: HOW IT WORKS & HELP
+      ========================================== */}
+      {showHowItWorks && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setShowHowItWorks(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-teal-700" />
+                <span>{lang === 'hi' ? 'यह कैसे काम करता है' : 'How it works'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHowItWorks(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3.5 text-xs text-slate-600">
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0">1</div>
+                <div>
+                  <div className="font-semibold text-slate-900">{lang === 'hi' ? 'पर्ची प्राप्त करें' : 'Receive printed receipt'}</div>
+                  <p className="mt-0.5">{lang === 'hi' ? 'ओपीडी या रिसेप्शन से टेस्ट और क्यूआर कोड वाली पर्ची लें।' : 'Get your OPD receipt containing registered tests and official QR code.'}</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0">2</div>
+                <div>
+                  <div className="font-semibold text-slate-900">{lang === 'hi' ? 'क्यूआर स्कैन करें' : 'Scan live QR pass'}</div>
+                  <p className="mt-0.5">{lang === 'hi' ? 'बिना किसी ऐप डाउनलोड के फोन कैमरे से तुरंत लाइव बोर्डिंग पास खोलें।' : 'Scan using any smartphone camera to open your live queue boarding pass without app install.'}</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0">3</div>
+                <div>
+                  <div className="font-semibold text-slate-900">{lang === 'hi' ? 'न्यूनतम प्रतीक्षा में जांच पूरी करें' : 'Auto-routed tests'}</div>
+                  <p className="mt-0.5">{lang === 'hi' ? 'सिस्टम आपको सबसे खाली काउंटर पर निर्देशित करता है।' : 'Smart routing directs you to the lowest-wait diagnostic counter dynamically.'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      {showHelpModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setShowHelpModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-teal-700" />
+                <span>{lang === 'hi' ? 'तकनीकी एवं प्रशासनिक सहायता' : 'Hospital Help & Support'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 text-xs text-slate-600">
+              <p>
+                {lang === 'hi'
+                  ? 'यदि आपको लॉगिन या लाइव कतार संचालन में कोई समस्या है, तो अस्पताल आईटी हेल्पडेस्क से संपर्क करें:'
+                  : 'For assistance with sign-in, queue tokens, or counter operations, reach the clinical IT helpdesk:'}
+              </p>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <div className="font-semibold text-slate-900">QCare Central Clinical Helpdesk</div>
+                <div className="text-teal-700 font-semibold">+91 11 4100 2200</div>
+                <div className="text-slate-500 text-[11px]">support@qcare.health • Mon–Sat: 08:00 AM – 06:00 PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

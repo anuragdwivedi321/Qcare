@@ -12,6 +12,7 @@ import {
   CornerDownRight
 } from 'lucide-react';
 import { useHospitalStore } from '../../store/useHospitalStore';
+import { RouteStep } from '../../types';
 
 interface HospitalFloorRadarProps {
   onClose?: () => void;
@@ -33,7 +34,7 @@ export const HospitalFloorRadar: React.FC<HospitalFloorRadarProps> = ({ onClose 
   // Find the patient's current upcoming diagnostic test
   const upNextStep = useMemo(() => {
     return currentRoutingPlan.smartRouteSteps.find(
-      s => !selectedPatient?.completedTests.includes(s.testId)
+      (s: RouteStep) => !selectedPatient?.completedTests.includes(s.testId)
     );
   }, [currentRoutingPlan.smartRouteSteps, selectedPatient?.completedTests]);
 
@@ -79,7 +80,7 @@ export const HospitalFloorRadar: React.FC<HospitalFloorRadarProps> = ({ onClose 
 
   // Check if patient has prescribed test in selected room
   const matchingPatientStep = currentRoutingPlan.smartRouteSteps.find(
-    s => s.departmentId === selectedDept?.id
+    (s: RouteStep) => s.departmentId === selectedDept?.id
   );
   const isStepDone = matchingPatientStep 
     ? selectedPatient?.completedTests.includes(matchingPatientStep.testId) 
