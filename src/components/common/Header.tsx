@@ -107,7 +107,7 @@ export const Header: React.FC = () => {
       : roleTile?.label ?? undefined;
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 w-full select-none border-b border-slate-200/80 bg-white/80 backdrop-blur-[16px] backdrop-saturate-150 shadow-[0_1px_0_0_rgba(15,23,42,0.015)]">
+    <header className="fixed inset-x-0 top-0 z-40 w-full select-none border-b border-slate-200/80 bg-white/80 backdrop-blur-[16px] backdrop-saturate-150 shadow-[0_1px_0_0_rgba(15,23,42,0.015)] print:hidden">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
 
         {/* ───────────── Left: brand + institution ───────────── */}

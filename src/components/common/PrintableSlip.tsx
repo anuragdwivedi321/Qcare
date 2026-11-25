@@ -294,51 +294,58 @@ export const PrintableSlip: React.FC<PrintableSlipProps> = ({
                 </div>
 
                 {/* Stepper Progression */}
-                <div className="grid grid-cols-4 gap-2 pt-2">
-                  {/* Step 1: Registration Completed */}
-                  <div className="text-center space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-xs font-bold text-xs">
-                      ✓
-                    </div>
-                    <div className="text-xs font-bold text-slate-900 leading-tight">Registration</div>
-                    <div className="text-[10px] text-emerald-600 font-semibold">Completed</div>
-                    <div className="text-[10px] text-slate-400 font-mono">05:20 PM</div>
+                <div className="relative pt-2">
+                  {/* Horizontal connecting track line */}
+                  <div className="absolute top-[22px] left-[12%] right-[12%] h-[2px] bg-slate-200 z-0">
+                    <div className="h-full bg-emerald-500 w-[33%]" />
                   </div>
 
-                  {/* Step 2: Next Investigation */}
-                  <div className="text-center space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center mx-auto shadow-xs font-bold text-xs">
-                      2
+                  <div className="grid grid-cols-4 gap-2 relative z-10">
+                    {/* Step 1: Registration Completed */}
+                    <div className="text-center space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-sm font-bold text-xs ring-4 ring-white">
+                        ✓
+                      </div>
+                      <div className="text-xs font-bold text-slate-900 leading-tight">Registration</div>
+                      <div className="text-[10px] text-emerald-600 font-semibold">Completed</div>
+                      <div className="text-[10px] text-slate-400 font-mono">05:20 PM</div>
                     </div>
-                    <div className="text-xs font-bold text-slate-900 leading-tight truncate">
-                      {prescribedList[0]?.test?.name || 'Investigation'}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium truncate">
-                      {prescribedList[0]?.dept?.location.room || 'Room 218'}
-                    </div>
-                    <div className="text-[10px] text-sky-600 font-bold">(Next)</div>
-                  </div>
 
-                  {/* Step 3: Subsequent Investigation or Step */}
-                  <div className="text-center space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-300 flex items-center justify-center mx-auto text-xs font-bold">
-                      3
+                    {/* Step 2: Next Investigation */}
+                    <div className="text-center space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center mx-auto shadow-sm font-bold text-xs ring-4 ring-white">
+                        2
+                      </div>
+                      <div className="text-xs font-bold text-slate-900 leading-tight truncate px-0.5" title={prescribedList[0]?.test?.name || 'Investigation'}>
+                        {prescribedList[0]?.test?.name || 'Investigation'}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium truncate">
+                        {prescribedList[0]?.dept?.location.room || 'Room 218'}
+                      </div>
+                      <div className="text-[10px] text-sky-600 font-bold">(Next)</div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-700 leading-tight truncate">
-                      {prescribedList[1]?.test?.name || 'Visual Acuity'}
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate">
-                      {prescribedList[1]?.dept?.location.room || 'Room 218'}
-                    </div>
-                  </div>
 
-                  {/* Step 4: Reports Ready */}
-                  <div className="text-center space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-300 flex items-center justify-center mx-auto text-xs font-bold">
-                      4
+                    {/* Step 3: Subsequent Investigation or Step */}
+                    <div className="text-center space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 border border-slate-300 flex items-center justify-center mx-auto text-xs font-bold ring-4 ring-white">
+                        3
+                      </div>
+                      <div className="text-xs font-semibold text-slate-700 leading-tight truncate px-0.5" title={prescribedList[1]?.test?.name || 'Visual Acuity'}>
+                        {prescribedList[1]?.test?.name || 'Visual Acuity'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {prescribedList[1]?.dept?.location.room || 'Room 218'}
+                      </div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-700 leading-tight">Reports</div>
-                    <div className="text-[10px] text-slate-400">Ready</div>
+
+                    {/* Step 4: Reports Ready */}
+                    <div className="text-center space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 border border-slate-300 flex items-center justify-center mx-auto text-xs font-bold ring-4 ring-white">
+                        4
+                      </div>
+                      <div className="text-xs font-semibold text-slate-700 leading-tight">Reports</div>
+                      <div className="text-[10px] text-slate-400">Ready</div>
+                    </div>
                   </div>
                 </div>
               </div>
