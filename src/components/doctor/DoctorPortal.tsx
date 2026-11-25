@@ -6,6 +6,14 @@ import { calculateOptimalQueueRoute } from '../../engine/queueRouter';
 import { HISTORICAL_PATIENT_RECORDS, HistoricalPatientRecord } from '../../data/historicalPatientsData';
 import { DiagnosticTest, Patient } from '../../types';
 import {
+  Home,
+  LayoutDashboard,
+  Navigation,
+  FileCheck2,
+  MapPin,
+  Settings,
+  HelpCircle,
+  ChevronUp,
   Stethoscope,
   Users,
   Search,
@@ -44,7 +52,9 @@ import {
   Filter,
   Clock,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Bell,
+  QrCode as QrIcon
 } from 'lucide-react';
 
 const DP_CSS = `@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
@@ -228,6 +238,11 @@ export const DoctorPortal: React.FC = () => {
   const [patPhone, setPatPhone] = useState('');
   const [patComplaint, setPatComplaint] = useState('');
   const [patPriority, setPatPriority] = useState<'standard' | 'emergency'>('standard');
+  const [activeNavTab, setActiveNavTab] = useState<'dashboard' | 'new_patient' | 'diagnostic_journey' | 'reports' | 'hospital_map' | 'settings'>('new_patient');
+  const [previewUhid, setPreviewUhid] = useState<string>(() => `QC-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [isMedicalHistoryOpen, setIsMedicalHistoryOpen] = useState(false);
+  const [medicalHistoryNotes, setMedicalHistoryNotes] = useState('');
+  const [isCopiedUhid, setIsCopiedUhid] = useState(false);
   const [walkinTestIds, setWalkinTestIds] = useState<string[]>([]);
   const [formError, setFormError] = useState('');
   const [autofillBanner, setAutofillBanner] = useState<string | null>(null);
@@ -819,657 +834,736 @@ export const DoctorPortal: React.FC = () => {
     );
   };
 
+
+  // Cost and duration calculations for selected investigations
+  const selectedTestsList = useMemo(() => {
+    return tests.filter(t => walkinTestIds.includes(t.id));
+  }, [tests, walkinTestIds]);
+
+  const totalCalculatedCost = useMemo(() => {
+    return selectedTestsList.reduce((acc, curr) => acc + (curr.standardPrice || 400), 0);
+  }, [selectedTestsList]);
+
+  const totalEstimatedDuration = useMemo(() => {
+    return selectedTestsList.reduce((acc, curr) => acc + (curr.averageDurationMinutes || 10), 0);
+  }, [selectedTestsList]);
+
+  const durationMinRange = Math.max(5, Math.floor(totalEstimatedDuration * 0.8));
+  const durationMaxRange = Math.max(10, Math.ceil(totalEstimatedDuration * 1.2));
+
+  // Quick categories for investigations filter
+  const testCategories = [
+    { id: 'all', label: 'All' },
+    { id: 'pathology', label: 'Blood' },
+    { id: 'radiology', label: 'Radiology' },
+    { id: 'cardiology', label: 'Cardiology' },
+    { id: 'ophthalmology', label: 'Eye' },
+    { id: 'more', label: '+ More' }
+  ];
+
   return (
-    <div className="dp-root text-slate-900 pb-2">
+    <div className="dp-root text-slate-900 pb-4">
       <style>{DP_CSS}</style>
-      <div className="dp-aurora" aria-hidden="true"><i /><i /><i /></div>
-      
-      {/* ========================================================
-          1. TOP CLINICAL WORKSTATION BAR — compact identity strip only
-      ======================================================== */}
-      <section className="dp-topbar dp-rise glass-header mb-2.5 flex items-center justify-between gap-2">
-        {/* Left: Doctor Profile */}
-        <div className="flex items-center gap-2.5">
-          <div className="dp-avatar relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-            <img
-              src={currentUser?.avatar || resolveIndianDoctorAvatar(currentUser?.name || currentHospital.doctorName)}
-              alt={currentUser?.name || currentHospital.doctorName}
-              className="w-full h-full object-cover object-top"
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.includes('doctor_male_1.jpg')) {
-                  img.src = '/doctors/doctor_male_1.jpg';
-                }
-              }}
-            />
-            <span className="dp-live absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          </div>
 
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm sm:text-[17px] font-extrabold text-slate-900 tracking-tight leading-tight">
-              {currentUser?.name || currentHospital.doctorName || 'Dr. Ananya Sen'}
-            </h1>
-            <span className="text-xs text-slate-400">·</span>
-            <span className="text-xs text-slate-500 font-medium">
-              {currentUser?.identifier || currentHospital.doctorRoom || 'Chamber 204'}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: Walk-in / Queue switcher only */}
-        <div className="flex items-center gap-1.5">
-          {/* Segmented Mode Pill Switcher */}
-          <div className="dp-seg" data-mode={mainViewMode}>
-            <span className="dp-seg-thumb" aria-hidden="true" />
-            <button
-              type="button"
-              onClick={() => setMainViewMode('walkin')}
-              className={`dp-seg-btn ${mainViewMode === 'walkin' ? 'on' : ''}`}
-            >
-              Walk-in
-            </button>
-            <button
-              type="button"
-              onClick={() => setMainViewMode('queue')}
-              className={`dp-seg-btn ${mainViewMode === 'queue' ? 'on' : ''}`}
-            >
-              <span>Queue</span>
-              <span className="dp-seg-count">{patients.length}</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================
-          2. VIEW 1: REBUILT WALK-IN REGISTRATION & ORDER BUILDER
-      ======================================================== */}
-      {mainViewMode === 'walkin' && (
-        <form onSubmit={handleRegisterAndIssuePass} className="space-y-4">
+      {/* Main Container Card with Dark Navy Left Sidebar + Main Workstation */}
+      <div className="rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col lg:flex-row bg-slate-50 min-h-[820px] transition-all">
+        
+        {/* ========================================================
+            LEFT COLUMN: DARK NAVY SIDEBAR (Matching Image 1)
+        ======================================================== */}
+        <aside className="w-full lg:w-64 bg-[#09182b] text-slate-300 flex flex-col justify-between shrink-0 p-4 border-r border-slate-800">
           
-              {/* Mobile 2-Step Progress Indicator (Mobile screen wizard < 1024px) */}
-          <div className="lg:hidden flex items-center justify-between p-1 bg-slate-100/90 rounded-2xl border border-slate-200 text-xs font-semibold shadow-inner">
-            <button
-              type="button"
-              onClick={() => setMobileStep(1)}
-              className={`flex-1 py-2 text-center rounded-xl transition-all cursor-pointer ${
-                mobileStep === 1 ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              1. Patient Information
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!patName.trim()) {
-                  setFormError('Please enter patient full name first.');
-                  return;
-                }
-                setFormError('');
-                setMobileStep(2);
-              }}
-              className={`flex-1 py-2 text-center rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                mobileStep === 2 ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <span>2. Prescribe Tests</span>
-              {walkinTestIds.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">
-                  {walkinTestIds.length}
-                </span>
-              )}
-            </button>
+          <div className="space-y-6">
+            {/* Logo */}
+            <div className="flex items-center gap-2.5 px-2 pt-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                Q
+              </div>
+              <span className="font-extrabold text-xl tracking-tight text-white font-sans">
+                Care
+              </span>
+            </div>
+
+            {/* Sidebar Navigation Menu */}
+            <nav className="space-y-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('dashboard');
+                  setMainViewMode('queue');
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'dashboard'
+                    ? 'bg-white/10 text-white shadow-xs font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4 text-slate-400" />
+                <span>Dashboard</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('new_patient');
+                  setMainViewMode('walkin');
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'new_patient'
+                    ? 'bg-teal-500 text-white shadow-md font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>New Patient</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('diagnostic_journey');
+                  setMainViewMode('queue');
+                  setWorkspaceTab('route');
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'diagnostic_journey'
+                    ? 'bg-white/10 text-white shadow-xs font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Navigation className="w-4 h-4 text-slate-400" />
+                <span>Diagnostic Journey</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('reports');
+                  setMainViewMode('queue');
+                  setWorkspaceTab('reports');
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'reports'
+                    ? 'bg-white/10 text-white shadow-xs font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-slate-400" />
+                <span>Reports</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('hospital_map');
+                  openSearchModal();
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'hospital_map'
+                    ? 'bg-white/10 text-white shadow-xs font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <MapPin className="w-4 h-4 text-slate-400" />
+                <span>Hospital Map</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNavTab('settings');
+                  setShowHistoricalModal(true);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all cursor-pointer text-left ${
+                  activeNavTab === 'settings'
+                    ? 'bg-white/10 text-white shadow-xs font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Settings className="w-4 h-4 text-slate-400" />
+                <span>Settings</span>
+              </button>
+            </nav>
           </div>
 
-          {/* Inline Form Error */}
-          {formError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-center gap-2 shadow-2xs dp-shake">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span className="font-semibold">{formError}</span>
+          {/* Sidebar Bottom: Need Help Ask Q-Bie Card & Doctor Profile */}
+          <div className="space-y-4 pt-4 border-t border-slate-800/80">
+            {/* Ask Q-Bie Mascot Card */}
+            <div className="p-3.5 bg-gradient-to-b from-[#0f243d] to-[#0a1a2e] rounded-2xl border border-slate-700/60 text-center space-y-2 shadow-xs">
+              <div className="w-11 h-11 rounded-full bg-teal-500/20 border border-teal-400/40 flex items-center justify-center mx-auto shadow-inner text-teal-300">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Need Help?</p>
+                <button
+                  type="button"
+                  onClick={generateAiDemoPatient}
+                  className="text-[11px] font-semibold text-teal-400 hover:text-teal-300 flex items-center justify-center gap-1 mx-auto mt-0.5 cursor-pointer"
+                >
+                  <span>Ask Q-Bie →</span>
+                </button>
+              </div>
             </div>
-          )}
 
-          {/* 2-Column Clinical Grid (Desktop Side-by-Side, Mobile 2-Step) */}
-          <div className="dp-grid grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-            
-            {/* ----------------------------------------------------
-                COLUMN 1: PATIENT REGISTRATION FORM (5 Cols)
-            ---------------------------------------------------- */}
-            <div className={`dp-rise lg:col-span-5 glass-panel rounded-[34px] p-5 sm:p-6 flex flex-col space-y-4 ${
-              mobileStep === 1 ? 'block' : 'hidden lg:block'
-            }`}>
-              
-              {/* Header */}
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-200/80">
-                <div className="dp-ico dp-ico-blue">
-                  <UserPlus className="w-4 h-4 text-white" />
+            {/* Doctor Profile Footer in Sidebar */}
+            <div className="flex items-center justify-between p-2 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-teal-400/50 bg-slate-800 shrink-0">
+                  <img
+                    src={currentUser?.avatar || resolveIndianDoctorAvatar(currentUser?.name || currentHospital.doctorName)}
+                    alt="Doctor"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/doctors/doctor_female_1.jpg';
+                    }}
+                  />
                 </div>
-                <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                  New patient
-                </h2>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">
+                    {currentUser?.name || currentHospital.doctorName || 'Dr. Ananya Sen'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    Consultant Physician
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+          </div>
+
+        </aside>
+
+        {/* ========================================================
+            RIGHT COLUMN: MAIN WORKSPACE (Matching Image 1)
+        ======================================================== */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#f4f7fa] overflow-hidden">
+          
+          {/* Top Bar Header inside Main Area */}
+          <header className="px-6 py-4 bg-white border-b border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Hospital Selector Dropdown Pill */}
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+              <button
+                type="button"
+                onClick={openSearchModal}
+                className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800 hover:text-teal-700 transition-colors cursor-pointer"
+              >
+                <span>{currentHospital.name}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+              </button>
+            </div>
+
+            {/* Notification Bell with Badge & Doctor Initials Avatar */}
+            <div className="flex items-center gap-3.5 self-end sm:self-auto">
+              <div className="relative cursor-pointer" onClick={() => showToast('OPD Notification: All diagnostic bays operating smoothly.')}>
+                <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                  2
+                </span>
               </div>
 
-              {/* Returning Patient Search + Demo */}
-              <div className="relative">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={returningSearchQuery}
-                      onChange={e => {
-                        setReturningSearchQuery(e.target.value);
-                        setShowReturningDropdown(true);
-                      }}
-                      onFocus={() => setShowReturningDropdown(true)}
-                      placeholder="Returning patient — name, UHID, phone"
-                      data-tooltip="Search past records to autofill form"
-                      className="dp-field w-full h-9 pl-8 pr-7 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all"
-                    />
-                    {returningSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setReturningSearchQuery('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
+              {/* Initials Avatar */}
+              <div
+                onClick={() => setMainViewMode(m => m === 'walkin' ? 'queue' : 'walkin')}
+                className="w-9 h-9 rounded-full bg-teal-800 text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer border border-teal-700 hover:scale-105 transition-all"
+                title="Click to toggle Walk-in / Chamber Queue view"
+              >
+                DA
+              </div>
+            </div>
+          </header>
+
+          {/* Form Content / View Mode Area */}
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+            
+            {mainViewMode === 'walkin' ? (
+              <form onSubmit={handleRegisterAndIssuePass} className="space-y-5">
+                
+                {/* Page Title & Scan QR / Existing Patient Action Button */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-teal-500 text-white flex items-center justify-center shadow-sm shrink-0">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                        New Patient Registration
+                      </h1>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Register a new patient and select investigations
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Scan QR / Existing Patient Button */}
                   <button
                     type="button"
-                    onClick={generateAiDemoPatient}
-                    data-tooltip="Generate a random Indian patient demo"
-                    className="dp-demo h-9 px-3 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
+                    onClick={() => setShowHistoricalModal(true)}
+                    className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-2 shadow-2xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
                   >
-                    <Sparkles className="w-3 h-3" />
-                    <span className="hidden sm:inline">Demo</span>
+                    <QrIcon className="w-4 h-4 text-teal-600" />
+                    <span>Scan QR / Existing Patient</span>
                   </button>
                 </div>
 
-                {/* Dropdown Results */}
-                {showReturningDropdown && returningSearchQuery.trim().length >= 2 && (
-                  <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 divide-y divide-slate-100 max-h-56 overflow-y-auto animate-fadeIn">
-                    {returningMatches.histMatches.length === 0 && returningMatches.activeMatches.length === 0 ? (
-                      <div className="p-3 text-xs text-slate-500 text-center">
-                        No returning records found for "{returningSearchQuery}"
-                      </div>
-                    ) : (
-                      <>
-                        {returningMatches.histMatches.map(hist => (
-                          <button
-                            key={hist.id}
-                            type="button"
-                            onClick={() => handleSelectReturningPatient(hist)}
-                            className="w-full text-left p-3 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs cursor-pointer"
-                          >
-                            <div>
-                              <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                                <span>{hist.name}</span>
-                                <span className="font-mono text-[11px] text-slate-500">({hist.uhid})</span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                {hist.age}Y · {hist.gender} · {hist.contact} · Visited {hist.visitDate}
-                              </p>
-                            </div>
-                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Select</span>
-                          </button>
-                        ))}
-                      </>
-                    )}
+                {/* Inline Form Error */}
+                {formError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-center gap-2 shadow-2xs dp-shake">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span className="font-semibold">{formError}</span>
                   </div>
                 )}
-              </div>
 
-              {/* Full Name */}
-              <div>
-                <label className="dp-label">
-                  Full name <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    required
-                    value={patName}
-                    onChange={e => setPatName(e.target.value)}
-                    placeholder="Patient full name"
-                    data-tooltip="Enter the patient's full legal name"
-                    className="dp-field w-full h-9 pl-10 pr-3 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all shadow-2xs"
-                  />
-                </div>
-              </div>
+                {/* Main 2-Card Side-by-Side Layout: Patient Details (Left) + Select Investigations (Right) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  
+                  {/* ========================================================
+                      CARD 1 (Left 6 Cols): Patient Details
+                  ======================================================== */}
+                  <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
+                    
+                    {/* Card Header with Auto-Fill Button */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-teal-600" />
+                        <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+                          Patient Details
+                        </h2>
+                      </div>
 
-              {/* Age & Gender Row */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="dp-label">
-                    Age (years) <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={120}
-                      value={patAge}
-                      onChange={e => setPatAge(e.target.value)}
-                      placeholder="Age"
-                      data-tooltip="Patient chronological age in years"
-                      className="dp-field w-full h-9 pl-10 pr-3 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="dp-label">
-                    Gender <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="dp-gender" data-i={['Male', 'Female', 'Other'].indexOf(patGender)}>
-                    <span className="dp-gender-thumb" aria-hidden="true" />
-                    {(['Male', 'Female', 'Other'] as const).map(g => (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => setPatGender(g)}
-                        data-tooltip={`Select gender: ${g}`}
-                        className={`dp-gender-btn ${patGender === g ? 'on' : ''}`}
-                      >
-                        {g === 'Male' ? 'M' : g === 'Female' ? 'F' : 'O'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Mobile Number */}
-              <div>
-                <label className="dp-label">
-                  Mobile number <span className="text-rose-500">*</span>
-                </label>
-                <div className="dp-field flex rounded-xl border border-slate-200 bg-slate-50/70 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 overflow-hidden transition-all shadow-2xs h-9">
-                  <span className="inline-flex items-center px-2.5 bg-slate-100/90 text-slate-600 font-semibold text-xs border-r border-slate-200 shrink-0">
-                    +91
-                  </span>
-                  <div className="relative flex-1 flex items-center">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
-                    <input
-                      type="tel"
-                      required
-                      maxLength={10}
-                      value={patPhone}
-                      onChange={e => setPatPhone(e.target.value.replace(/\D/g, ''))}
-                      placeholder="98101 23456"
-                      data-tooltip="10-digit mobile number for QR token SMS dispatch"
-                      className="w-full h-full pl-10 pr-3 text-xs sm:text-sm text-slate-900 bg-transparent outline-none font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Chief Complaint with AI, Voice Dictation & Quick Dropdown */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="dp-label !mb-0">
-                    Chief complaint & symptoms <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    {/* Voice Dictation Button */}
-                    <button
-                      type="button"
-                      onClick={handleToggleVoiceDictation}
-                      data-tooltip={isListening ? "Listening... click to stop recording" : "Voice dictation"}
-                      className={`h-6 px-2 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer ${
-                        isListening
-                          ? 'bg-rose-500 text-white animate-pulse'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {isListening ? <Mic className="w-3 h-3 animate-bounce" /> : <Mic className="w-3 h-3 text-slate-500" />}
-                      <span>{isListening ? 'Listening...' : 'Voice'}</span>
-                    </button>
-
-                    {/* AI Expander & Test Matcher Button */}
-                    <button
-                      type="button"
-                      onClick={handleAiSuggestTests}
-                      data-tooltip="Clinical AI: expand symptoms into medical sentence & auto-prescribe tests"
-                      className="dp-ai h-6.5 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3 text-white" />
-                      <span>AI Assist</span>
-                    </button>
-
-                    {/* Quick Symptoms Dropdown */}
-                    <div className="relative" ref={quickSymptomsRef}>
+                      {/* Auto-Fill Button */}
                       <button
                         type="button"
-                        onClick={() => setShowQuickSymptoms(prev => !prev)}
-                        className="h-6.5 px-2.5 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                        onClick={generateAiDemoPatient}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-full text-xs font-bold border border-teal-200/60 transition-all cursor-pointer"
+                        title="Auto-fill patient demo info"
                       >
-                        <span>Quick</span>
-                        <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showQuickSymptoms ? 'rotate-180' : ''}`} />
+                        <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                        <span>Auto-Fill</span>
                       </button>
-                      {showQuickSymptoms && (
-                        <div className="absolute right-0 top-7 z-40 w-52 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 max-h-48 overflow-y-auto space-y-0.5 animate-fadeIn">
-                          {[
-                            'Fever & chills',
-                            'Chest tightness',
-                            'High blood sugar',
-                            'Eye blurring',
-                            'Body ache',
-                            'Abdominal pain',
-                            'Persistent cough',
-                            'Joint stiffness',
-                            'Ear ringing & vertigo'
-                          ].map(sym => (
-                            <button
-                              key={sym}
-                              type="button"
-                              onClick={() => {
-                                handleQuickSymptom(sym);
-                                setShowQuickSymptoms(false);
-                              }}
-                              className="w-full text-left px-2.5 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors cursor-pointer"
-                            >
-                              + {sym}
-                            </button>
-                          ))}
+                    </div>
+
+                    {/* Search Existing Patient Field */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={returningSearchQuery}
+                        onChange={e => {
+                          setReturningSearchQuery(e.target.value);
+                          setShowReturningDropdown(true);
+                        }}
+                        onFocus={() => setShowReturningDropdown(true)}
+                        placeholder="Search existing patient by name, UHID or mobile..."
+                        className="w-full h-9 pl-9 pr-7 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 transition-all"
+                      />
+                      {returningSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setReturningSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+
+                      {/* Dropdown Results */}
+                      {showReturningDropdown && returningSearchQuery.trim().length >= 2 && (
+                        <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 divide-y divide-slate-100 max-h-56 overflow-y-auto animate-fadeIn">
+                          {returningMatches.histMatches.length === 0 && returningMatches.activeMatches.length === 0 ? (
+                            <div className="p-3 text-xs text-slate-500 text-center">
+                              No returning records found for "{returningSearchQuery}"
+                            </div>
+                          ) : (
+                            returningMatches.histMatches.map(hist => (
+                              <button
+                                key={hist.id}
+                                type="button"
+                                onClick={() => handleSelectReturningPatient(hist)}
+                                className="w-full text-left p-3 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs cursor-pointer"
+                              >
+                                <div>
+                                  <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                    <span>{hist.name}</span>
+                                    <span className="font-mono text-[11px] text-slate-500">({hist.uhid})</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">
+                                    {hist.age}Y · {hist.gender} · {hist.contact}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-full">Select</span>
+                              </button>
+                            ))
+                          )}
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                <div className="relative">
-                  <textarea
-                    rows={2}
-                    value={patComplaint}
-                    onChange={e => setPatComplaint(e.target.value)}
-                    placeholder="Document symptoms (or type shorthand like 'fever' and click AI)..."
-                    data-tooltip="Type symptoms and click AI to expand into a complete sentence"
-                    className="dp-field w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all shadow-2xs"
-                  />
-                  {isListening && (
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-[10px] font-semibold text-rose-700 animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                      <span>Recording voice...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Triage Classification */}
-              <div>
-                <label className="dp-label">
-                  Triage classification
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <label
-                    data-tooltip="Standard outpatient consultation flow"
-                    className={`p-3 rounded-2xl border flex items-center gap-2.5 cursor-pointer ${
-                      patPriority === 'standard'
-                        ? 'dp-tri on-blue font-semibold text-blue-900'
-                        : 'dp-tri text-slate-600'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="patPriority"
-                      checked={patPriority === 'standard'}
-                      onChange={() => setPatPriority('standard')}
-                      className="sr-only"
-                    />
-                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                      patPriority === 'standard' ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
-                    }`}>
-                      {patPriority === 'standard' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
+                    {/* Full Name Field */}
                     <div>
-                      <span className="block leading-tight font-semibold">Standard OPD</span>
-                      <span className="text-[10px] text-slate-500 font-normal">Routine Consultation</span>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Full Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={patName}
+                        onChange={e => setPatName(e.target.value)}
+                        placeholder="Aman Verma"
+                        className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 transition-all"
+                      />
                     </div>
-                  </label>
 
-                  <label
-                    data-tooltip="Priority routing with expedited queue dispatch"
-                    className={`p-3 rounded-2xl border flex items-center gap-2.5 cursor-pointer ${
-                      patPriority === 'emergency'
-                        ? 'dp-tri on-rose font-semibold text-rose-900'
-                        : 'dp-tri text-slate-600'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="patPriority"
-                      checked={patPriority === 'emergency'}
-                      onChange={() => setPatPriority('emergency')}
-                      className="sr-only"
-                    />
-                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                      patPriority === 'emergency' ? 'border-rose-600 bg-rose-600' : 'border-slate-300'
-                    }`}>
-                      {patPriority === 'emergency' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div>
-                      <span className="block leading-tight font-semibold">Urgent / Priority</span>
-                      <span className="text-[10px] text-rose-600 font-normal">Fast-Track Queue</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Mobile "Continue to Tests" CTA (Step 1 -> Step 2) */}
-              <div className="lg:hidden pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!patName.trim()) {
-                      setFormError('Please enter patient full name.');
-                      return;
-                    }
-                    if (!patPhone.trim() || patPhone.replace(/\D/g, '').length !== 10) {
-                      setFormError('Please enter a valid 10-digit mobile number.');
-                      return;
-                    }
-                    setFormError('');
-                    setMobileStep(2);
-                  }}
-                  className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-2xl flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
-                >
-                  <span>Continue to Prescribe Tests ({walkinTestIds.length})</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-            </div>
-
-            {/* ----------------------------------------------------
-                COLUMN 2: DIAGNOSTIC INVESTIGATIONS ORDER BUILDER (7 Cols)
-            ---------------------------------------------------- */}
-            <div className={`dp-rise lg:col-span-7 glass-panel rounded-[34px] p-5 sm:p-6 flex flex-col space-y-3.5 ${
-              mobileStep === 2 ? 'block' : 'hidden lg:block'
-            }`}>
-              
-              {/* Mobile Back Button */}
-              <div className="lg:hidden pb-1">
-                <button
-                  type="button"
-                  onClick={() => setMobileStep(1)}
-                  className="text-xs font-semibold text-blue-600 flex items-center gap-1 cursor-pointer hover:underline"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to patient information</span>
-                </button>
-              </div>
-
-              {/* Compact Level Header: Title & Selected Count (Left) + Quick & Search (Right) */}
-              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80">
-                <div className="flex items-center gap-2">
-                  <div className="dp-ico dp-ico-indigo">
-                    <FlaskConical className="w-4 h-4 text-white" />
-                  </div>
-                  <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                    Investigations
-                  </h2>
-                  {walkinTestIds.length > 0 && (
-                    <span key={walkinTestIds.length} className="dp-badge dp-badge-pop">
-                      {walkinTestIds.length}
-                    </span>
-                  )}
-                  <svg className={`dp-ecg hidden sm:block ${walkinTestIds.length > 0 ? 'live' : ''}`} viewBox="0 0 96 24" aria-hidden="true">
-                    <path pathLength="100" d="M0 12h26l4-1 5-9 7 20 6-15 4 5h44" />
-                  </svg>
-                </div>
-
-                {/* Quick Bundles Dropdown & Search Bar */}
-                <div className="flex items-center gap-2">
-                  <div className="relative" ref={quickBundlesRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowQuickBundles(prev => !prev)}
-                      className="dp-quick h-9 px-3.5 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Quick</span>
-                      <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showQuickBundles ? 'rotate-180' : ''}`} />
-                    </button>
-                    {showQuickBundles && (
-                      <div className="absolute right-0 top-9 z-40 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 max-h-60 overflow-y-auto space-y-0.5 animate-fadeIn">
-                        <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Diagnostic Bundles
-                        </div>
-                        {TEST_BUNDLES.map((b, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              applyTestBundle(b.ids);
-                              setShowQuickBundles(false);
-                            }}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors group cursor-pointer"
-                          >
-                            <div className="text-xs font-semibold text-slate-800 group-hover:text-blue-700">
-                              {b.label}
-                            </div>
-                            <div className="text-[10px] text-slate-400 group-hover:text-blue-600">
-                              {b.desc}
-                            </div>
-                          </button>
-                        ))}
+                    {/* Age & Gender Row */}
+                    <div className="grid grid-cols-12 gap-3">
+                      {/* Age Field (5 cols) */}
+                      <div className="col-span-5">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Age <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          max={120}
+                          value={patAge}
+                          onChange={e => setPatAge(e.target.value)}
+                          placeholder="34"
+                          className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 transition-all"
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  <div className="relative w-36 sm:w-44 shrink-0">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search tests..."
-                      value={walkinSearchFilter}
-                      onChange={e => setWalkinSearchFilter(e.target.value)}
-                      data-tooltip="Filter tests by name or code"
-                      className="dp-field dp-sm w-full h-8 pl-8 pr-6 text-xs rounded-lg border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-2xs transition-all"
-                    />
-                    {walkinSearchFilter && (
+                      {/* Gender Pills (7 cols) */}
+                      <div className="col-span-7">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Gender <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5 h-10">
+                          {(['Male', 'Female', 'Other'] as const).map(g => {
+                            const isSelected = patGender === g;
+                            return (
+                              <button
+                                key={g}
+                                type="button"
+                                onClick={() => setPatGender(g)}
+                                className={`rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-teal-500 text-white shadow-xs'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                {g === 'Male' ? 'M' : g === 'Female' ? 'F' : 'O'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mobile Number Field with Country Code Indicator */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Mobile Number <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex rounded-xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/15 overflow-hidden transition-all h-10">
+                        <div className="inline-flex items-center gap-1 px-3 bg-slate-100/90 text-slate-700 font-bold text-xs border-r border-slate-200 shrink-0">
+                          <span>🇮🇳</span>
+                          <span>+91</span>
+                          <ChevronDown className="w-3 h-3 text-slate-400" />
+                        </div>
+                        <input
+                          type="tel"
+                          required
+                          maxLength={10}
+                          value={patPhone}
+                          onChange={e => setPatPhone(e.target.value.replace(/\D/g, ''))}
+                          placeholder="98765 43210"
+                          className="w-full h-full px-3.5 text-xs sm:text-sm text-slate-900 bg-transparent outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* UHID (Auto Generated) Box with Copy Action */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        UHID (Auto Generated)
+                      </label>
+                      <div className="flex items-center justify-between px-3.5 h-10 rounded-xl bg-slate-100/80 border border-slate-200 text-xs font-mono font-bold text-slate-700">
+                        <span>{previewUhid}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (navigator.clipboard) {
+                              navigator.clipboard.writeText(previewUhid);
+                              setIsCopiedUhid(true);
+                              setTimeout(() => setIsCopiedUhid(false), 2000);
+                            }
+                          }}
+                          className="text-slate-400 hover:text-teal-600 transition-colors cursor-pointer"
+                          title="Copy UHID"
+                        >
+                          {isCopiedUhid ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chief Complaints Field */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Chief Complaints <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAiSuggestTests}
+                          className="text-[11px] font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          <span>AI Assist</span>
+                        </button>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={patComplaint}
+                        onChange={e => setPatComplaint(e.target.value)}
+                        placeholder="Fever and cough for 3 days..."
+                        className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 transition-all resize-none"
+                      />
+                    </div>
+
+                    {/* Medical History (Optional) Expandable Accordion */}
+                    <div className="border border-slate-200/80 rounded-2xl overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => setWalkinSearchFilter('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        onClick={() => setIsMedicalHistoryOpen(prev => !prev)}
+                        className="w-full p-3 bg-slate-50/80 hover:bg-slate-100/80 flex items-center justify-between text-xs font-bold text-slate-700 transition-colors cursor-pointer"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Diagnostic Test Cards Grid — Clean, prominent test name, muted room info */}
-              <div className="dp-scroll flex-1 min-h-[360px] max-h-[440px] overflow-y-auto pr-1.5 py-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 content-start">
-                {filteredWalkinTests.map((test, idx) => {
-                  const isChecked = walkinTestIds.includes(test.id);
-                  const dept = departments.find(d => d.id === test.departmentId);
-
-                  return (
-                    <div
-                      key={test.id}
-                      onClick={() => {
-                        toggleWalkinTest(test.id);
-                        handleTestMouseLeave();
-                      }}
-                      onMouseEnter={(e) => handleTestMouseEnter(test.id, e)}
-                      onMouseLeave={handleTestMouseLeave}
-                      className={`dp-test dp-pop ${isChecked ? 'is-checked' : ''} p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer select-none`}
-                      style={{ animationDelay: `${Math.min(idx, 14) * 30}ms` }}
-                      role="checkbox"
-                      aria-checked={isChecked}
-                      tabIndex={0}
-                      onKeyDown={e => {
-                        if (e.key === ' ' || e.key === 'Enter') {
-                          e.preventDefault();
-                          toggleWalkinTest(test.id);
-                          handleTestMouseLeave();
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="dp-test-ico w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
-                          {getTestVisualBadge(test.id, test.code)}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-teal-600 font-black">+</span>
+                          <span>Medical History (Optional)</span>
                         </div>
+                        {isMedicalHistoryOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                      </button>
 
-                        <div className="min-w-0 flex-1">
-                          <span className="font-bold text-[13px] text-slate-900 block truncate">
-                            {test.name}
-                          </span>
-                          <span className="text-[11.5px] text-slate-500 block truncate mt-0.5">
-                            {dept ? `${dept.location.room} · ${dept.location.floor}` : 'Diagnostic Bay'}
-                            {test.requiresFasting && ' · Fasting'}
-                            {test.requiresFullBladder && ' · Full bladder'}
-                          </span>
+                      {isMedicalHistoryOpen && (
+                        <div className="p-3 bg-white border-t border-slate-100 space-y-2 animate-fadeIn">
+                          <input
+                            type="text"
+                            value={medicalHistoryNotes}
+                            onChange={e => setMedicalHistoryNotes(e.target.value)}
+                            placeholder="Known allergies, diabetes history, hypertension..."
+                            className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-teal-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* ========================================================
+                      CARD 2 (Right 6 Cols): Select Investigations
+                  ======================================================== */}
+                  <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
+                    
+                    {/* Card Header with Test Icon */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <FlaskConical className="w-4 h-4 text-teal-600" />
+                        <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+                          Select Investigations
+                        </h2>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200/60">
+                        {walkinTestIds.length} Selected
+                      </span>
+                    </div>
+
+                    {/* Search Field */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search tests or filter by category..."
+                        value={walkinSearchFilter}
+                        onChange={e => setWalkinSearchFilter(e.target.value)}
+                        className="w-full h-9 pl-9 pr-7 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 transition-all"
+                      />
+                      {walkinSearchFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setWalkinSearchFilter('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter Pills: All, Blood, Radiology, Cardiology, Eye, + More */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {testCategories.map(cat => {
+                        const isCatSelected = cat.id === 'more' ? walkinCategoryFilter === 'more' : walkinCategoryFilter === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              if (cat.id === 'more') {
+                                setWalkinCategoryFilter(prev => prev === 'more' ? 'all' : 'more');
+                              } else {
+                                setWalkinCategoryFilter(cat.id);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                              isCatSelected
+                                ? 'bg-teal-500 text-white shadow-2xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Investigations List — Clean Vertical Cards matching Image 1 */}
+                    <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                      {filteredWalkinTests.map((test) => {
+                        const isChecked = walkinTestIds.includes(test.id);
+                        const dept = departments.find(d => d.id === test.departmentId);
+
+                        return (
+                          <div
+                            key={test.id}
+                            onClick={() => toggleWalkinTest(test.id)}
+                            className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer select-none ${
+                              isChecked
+                                ? 'bg-teal-50/70 border-teal-300 ring-1 ring-teal-200 shadow-2xs'
+                                : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              {/* Left Icon with Teal Outline */}
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                                isChecked ? 'bg-white border-teal-300 text-teal-600' : 'bg-slate-50 border-slate-200 text-slate-600'
+                              }`}>
+                                {getTestVisualBadge(test.id, test.code)}
+                              </div>
+
+                              {/* Title, Room & Est. Duration */}
+                              <div className="min-w-0 flex-1">
+                                <span className="font-bold text-xs sm:text-sm text-slate-900 block truncate">
+                                  {test.name}
+                                </span>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                                  <span>{dept ? `${dept.location.room} • ${dept.location.floor}` : 'Diagnostic Bay'}</span>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-0.5 text-slate-600 font-medium">
+                                    <Clock className="w-3 h-3 text-slate-400" />
+                                    <span>{test.averageDurationMinutes || 5} min</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Checkmark Circle (Checked = Solid Teal circle with white check, Unchecked = Empty circle) */}
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                              isChecked
+                                ? 'bg-teal-500 border-teal-500 text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}>
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected Tests Tags Strip (Bottom of Investigations Card) */}
+                    <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                        <span className="text-xs font-bold text-slate-800 shrink-0">
+                          Selected Tests ({walkinTestIds.length})
+                        </span>
+                        
+                        {/* Removable chips */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {selectedTestsList.slice(0, 3).map(st => (
+                            <span
+                              key={st.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-teal-50 text-teal-900 border border-teal-200/60 text-[11px] font-semibold"
+                            >
+                              <span className="truncate max-w-[120px]">{st.name}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleWalkinTest(st.id);
+                                }}
+                                className="text-teal-600 hover:text-rose-600"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                          {selectedTestsList.length > 3 && (
+                            <span className="text-[11px] font-bold text-teal-700">
+                              +{selectedTestsList.length - 3} more
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Checkbox */}
-                      <div className="dp-check shrink-0">
-                        <Check className="w-3 h-3 stroke-[3]" />
+                      {/* Estimated Duration + Clear All Action */}
+                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                        {walkinTestIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setWalkinTestIds([])}
+                            className="text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100/80 px-2.5 py-1 rounded-xl">
+                          <Clock className="w-3.5 h-3.5 text-teal-600" />
+                          <span className="font-bold text-slate-900">
+                            {walkinTestIds.length > 0 ? `${durationMinRange}-${durationMaxRange} min` : '0 min'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Column 2 Bottom Action Bar — Primary CTA anchored after tests */}
-              <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <span className="text-slate-800 font-bold text-xs block">
-                    {walkinTestIds.length > 0
-                      ? `${walkinTestIds.length} test${walkinTestIds.length > 1 ? 's' : ''} selected`
-                      : '0 tests selected'}
-                  </span>
-                  <span className="text-slate-400 text-[11px] block truncate">
-                    {walkinTestIds.length > 0 ? 'Ready to issue live thermal boarding slip' : 'Select investigations or register directly'}
-                  </span>
+                  </div>
+
                 </div>
-                <button
-                  type="submit"
-                  data-tooltip="Generate official printable QR boarding slip & route to bays"
-                  className="dp-cta h-12 px-6 text-sm font-bold rounded-2xl flex items-center justify-center gap-2.5 cursor-pointer shrink-0 shadow-lg"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Register & issue pass</span>
-                </button>
-              </div>
 
-            </div>
+                {/* Bottom Sticky Action Bar: Total Tests & Estimated Cost (Left) + Generate Diagnostic Pass CTA (Right) */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-xs sm:text-sm font-bold text-slate-800">
+                    <span>Total Tests: <strong className="text-slate-900">{walkinTestIds.length}</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span>Estimated Cost: <strong className="text-teal-700">₹{totalCalculatedCost}</strong></span>
+                  </div>
 
-          </div>
+                  {/* Primary Submit CTA Button */}
+                  <button
+                    type="submit"
+                    className="h-11 px-6 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer hover:scale-[1.01]"
+                  >
+                    <span>Generate Diagnostic Pass</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
 
-        </form>
-      )}
+              </form>
+            ) : null}
 
-      {/* ========================================================
-          3. VIEW 2: TODAY'S ACTIVE OPD QUEUE & CLINICAL REPORTS
-      ======================================================== */}
-      {mainViewMode === 'queue' && (
+
+            {mainViewMode === 'queue' && (
+
         <div className="dp-grid grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           
           {/* Patient Queue Roster (4 Cols) */}
@@ -2120,7 +2214,12 @@ export const DoctorPortal: React.FC = () => {
           </div>
 
         </div>
-      )}
+      
+            )}
+
+          </div>
+        </main>
+      </div>
 
       {/* ========================================================
           4. REBUILT OUTPATIENT RECORDS ARCHIVE MODAL (56 PATIENTS)
